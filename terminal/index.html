@@ -80,13 +80,7 @@
         <button id="add-tab-btn" title="New Tab">+</button>
       </div>
       <div id="controls">
-        <select id="theme-select" title="Theme">
-          <option value="catppuccin">Catppuccin Mocha</option>
-          <option value="tokyonight">Tokyo Night</option>
-          <option value="dracula">Dracula</option>
-          <option value="gruvbox">Gruvbox Dark</option>
-          <option value="latte">Catppuccin Latte (Light)</option>
-        </select>
+        <select id="theme-select" title="Theme"></select>
         <select id="font-select" title="Font Family">
           <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
           <option value="'Fira Code', monospace">Fira Code</option>
@@ -104,48 +98,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
   <script>
-    const THEMES = {
-      catppuccin: {
-        background: '#1e1e2e', foreground: '#cdd6f4', cursor: '#f5e0dc', selectionBackground: '#585b70',
-        black: '#45475a', red: '#f38ba8', green: '#a6e3a1', yellow: '#f9e2af',
-        blue: '#89b4fa', magenta: '#f5c2e7', cyan: '#94e2d5', white: '#bac2de',
-        brightBlack: '#585b70', brightRed: '#f38ba8', brightGreen: '#a6e3a1', brightYellow: '#f9e2af',
-        brightBlue: '#89b4fa', brightMagenta: '#f5c2e7', brightCyan: '#94e2d5', brightWhite: '#a6adc8',
-        barBg: '#181825', barFg: '#cdd6f4', tabBg: '#1e1e2e', tabActive: '#313244', accent: '#cba6f7', border: '#45475a'
-      },
-      tokyonight: {
-        background: '#1a1b26', foreground: '#c0caf5', cursor: '#c0caf5', selectionBackground: '#33467c',
-        black: '#15161e', red: '#f7768e', green: '#9ece6a', yellow: '#e0af68',
-        blue: '#7aa2f7', magenta: '#bb9af7', cyan: '#7dcfff', white: '#a9b1d6',
-        brightBlack: '#414868', brightRed: '#f7768e', brightGreen: '#9ece6a', brightYellow: '#e0af68',
-        brightBlue: '#7aa2f7', brightMagenta: '#bb9af7', brightCyan: '#7dcfff', brightWhite: '#c0caf5',
-        barBg: '#16161e', barFg: '#c0caf5', tabBg: '#1a1b26', tabActive: '#292e42', accent: '#7aa2f7', border: '#414868'
-      },
-      dracula: {
-        background: '#282a36', foreground: '#f8f8f2', cursor: '#f8f8f2', selectionBackground: '#44475a',
-        black: '#21222c', red: '#ff5555', green: '#50fa7b', yellow: '#f1fa8c',
-        blue: '#bd93f9', magenta: '#ff79c6', cyan: '#8be9fd', white: '#f8f8f2',
-        brightBlack: '#6272a4', brightRed: '#ff6e6e', brightGreen: '#69ff94', brightYellow: '#ffffa5',
-        brightBlue: '#d6acff', brightMagenta: '#ff92df', brightCyan: '#a4ffff', brightWhite: '#ffffff',
-        barBg: '#191a21', barFg: '#f8f8f2', tabBg: '#282a36', tabActive: '#44475a', accent: '#bd93f9', border: '#6272a4'
-      },
-      gruvbox: {
-        background: '#282828', foreground: '#ebdbb2', cursor: '#ebdbb2', selectionBackground: '#504945',
-        black: '#282828', red: '#cc241d', green: '#98971a', yellow: '#d79921',
-        blue: '#458588', magenta: '#b16286', cyan: '#689d6a', white: '#a89984',
-        brightBlack: '#928374', brightRed: '#fb4934', brightGreen: '#b8bb26', brightYellow: '#fabd2f',
-        brightBlue: '#83a598', brightMagenta: '#d3869b', brightCyan: '#8ec07c', brightWhite: '#ebdbb2',
-        barBg: '#1d2021', barFg: '#ebdbb2', tabBg: '#282828', tabActive: '#3c3836', accent: '#fabd2f', border: '#504945'
-      },
-      latte: {
-        background: '#eff1f5', foreground: '#4c4f69', cursor: '#dc8a78', selectionBackground: '#acb0be',
-        black: '#5c5f77', red: '#d20f39', green: '#40a02b', yellow: '#df8e1d',
-        blue: '#1e66f5', magenta: '#ea76cb', cyan: '#179299', white: '#acb0be',
-        brightBlack: '#6c6f85', brightRed: '#d20f39', brightGreen: '#40a02b', brightYellow: '#df8e1d',
-        brightBlue: '#1e66f5', brightMagenta: '#ea76cb', brightCyan: '#179299', brightWhite: '#bcc0cc',
-        barBg: '#e6e9ef', barFg: '#4c4f69', tabBg: '#eff1f5', tabActive: '#ccd0da', accent: '#8839ef', border: '#bcc0cc'
-      }
-    };
+    let THEMES = {};
 
     let currentTheme = localStorage.getItem('grok_theme') || 'catppuccin';
     let currentFont = localStorage.getItem('grok_font') || "'JetBrains Mono', monospace";
@@ -221,6 +174,31 @@
       return match[1].trim().split(',').filter(Boolean);
     }
 
+    async function loadThemes() {
+      const bust = Date.now();
+      const manifestRes = await fetch(`/themes/manifest.json?t=${bust}`, { cache: 'no-store', credentials: 'same-origin' });
+      if (!manifestRes.ok) throw new Error('manifest');
+      const manifest = await manifestRes.json();
+      const themes = {};
+      const select = document.getElementById('theme-select');
+      select.innerHTML = '';
+      for (const entry of manifest) {
+        const id = typeof entry === 'string' ? entry : entry.id;
+        if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) continue;
+        const res = await fetch(`/themes/${id}.json?t=${bust}`, { cache: 'no-store', credentials: 'same-origin' });
+        if (!res.ok) continue;
+        const theme = await res.json();
+        themes[id] = theme;
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = theme.name || id;
+        select.appendChild(opt);
+      }
+      THEMES = themes;
+      if (!THEMES[currentTheme]) currentTheme = Object.keys(THEMES)[0] || '';
+      if (currentTheme) select.value = currentTheme;
+    }
+
     function applyChromeTheme(t) {
       const root = document.documentElement.style;
       root.setProperty('--bar-bg', t.barBg);
@@ -233,7 +211,8 @@
     }
 
     function updateAllTerminalSettings() {
-      const t = THEMES[currentTheme] || THEMES.catppuccin;
+      const t = THEMES[currentTheme];
+      if (!t) return;
       applyChromeTheme(t);
       document.getElementById('font-size-label').textContent = `${currentFontSize}px`;
       tabs.forEach((tab) => {
@@ -314,7 +293,7 @@
         scrollback: 10000,
         fontFamily: currentFont,
         fontSize: currentFontSize,
-        theme: THEMES[currentTheme] || THEMES.catppuccin,
+        theme: THEMES[currentTheme] || {},
         allowProposedApi: true
       });
       const fitAddon = new FitAddon.FitAddon();
@@ -425,7 +404,6 @@
     }
 
     document.getElementById('add-tab-btn').onclick = () => createTab();
-    document.getElementById('theme-select').value = currentTheme;
     document.getElementById('theme-select').onchange = (e) => {
       currentTheme = e.target.value;
       localStorage.setItem('grok_theme', currentTheme);
@@ -464,6 +442,12 @@
     });
 
     (async () => {
+      try {
+        await loadThemes();
+      } catch (err) {
+        document.body.textContent = 'Failed to load /terminal/themes. Check themes/manifest.json.';
+        return;
+      }
       updateAllTerminalSettings();
       const existing = await listExistingSessions();
       if (existing.length > 0) {

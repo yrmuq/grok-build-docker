@@ -9,8 +9,8 @@ if [ -z "$AUTH_PASSWORD" ]; then
 fi
 
 # Bind mounts created by Docker are root-owned. Fix the mount roots only.
-mkdir -p /core/bin /skills /projects /home/coder
-for dir in /core /utilities /skills /projects /home/coder /app; do
+mkdir -p /core/bin /skills /projects /terminal/themes /home/coder
+for dir in /core /utilities /skills /projects /terminal /home/coder /app; do
     mkdir -p "$dir"
     chown 1000:1000 "$dir"
 done
@@ -74,6 +74,7 @@ if [ ! -f /core/AGENTS.md ]; then
    - `/utilities`: All installed languages, runtimes, and tools (`mise`, `cargo`, `uv`, `npm`).
    - `/skills`: Custom skills directory (`/skills/<skill_name>/SKILL.md`), linked from `$GROK_HOME/skills`.
    - `/projects`: User workspaces and git repositories.
+4. **Web UI**: `/terminal/index.html` and `/terminal/themes/*.json` are the browser UI. Refresh the page to see edits. Do not rebuild the image for theme changes.
 EOF
     chown 1000:1000 /core/AGENTS.md
 fi
@@ -121,7 +122,7 @@ export NPM_CONFIG_PREFIX=/utilities/npm
 export PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/bin:/usr/bin:/bin"
 eval "$(mise activate zsh)"
 eval "$(starship init zsh)"
-echo "Ready. Run 'grok' to start Grok Build, or 'mise use -g <tool>@latest' to install tools into /utilities."
+echo "Ready. Sign in once with 'grok login --device-auth', then run 'grok'. Install tools with 'mise use -g <tool>@latest'."
 EOF
 
 cat << 'EOF' > /home/coder/.tmux.conf
@@ -146,4 +147,44 @@ if [ ! -f /utilities/mise/.bootstrapped ]; then
 fi
 
 cd /projects
-exec as_coder ttyd -I /app/index.html -a -W -m 10 -c "${AUTH_USER}:${AUTH_PASSWORD}" -p 7681 /app/tab.sh
+
+# Seed the mounted UI only where the host has not already provided a file.
+if [ ! -f /terminal/index.html ]; then
+    cp /opt/terminal-defaults/index.html /terminal/index.html
+fi
+if [ ! -f /terminal/themes/manifest.json ]; then
+    cp /opt/terminal-defaults/themes/manifest.json /terminal/themes/manifest.json
+fi
+for theme in /opt/terminal-defaults/themes/*.json; do
+    name="$(basename "$theme")"
+    if [ ! -f "/terminal/themes/${name}" ]; then
+        cp "$theme" "/terminal/themes/${name}"
+    fi
+done
+chmod -R a+rX /terminal
+chown 1000:1000 /terminal /terminal/index.html /terminal/themes
+
+htpasswd -bc /etc/nginx/ttyd.htpasswd "$AUTH_USER" "$AUTH_PASSWORD" >/dev/null
+chmod 644 /etc/nginx/ttyd.htpasswd
+mkdir -p /tmp/nginx-client /tmp/nginx-proxy /tmp/nginx-fastcgi /tmp/nginx-uwsgi /tmp/nginx-scgi
+
+as_coder ttyd -i 127.0.0.1 -p 7682 -I /terminal/index.html -a -W -m 10 /app/tab.sh &
+ttyd_pid=$!
+nginx -g 'daemon off;' &
+nginx_pid=$!
+
+cleanup() {
+    if [ -n "${ttyd_pid:-}" ]; then
+        pkill -TERM -P "$ttyd_pid" 2>/dev/null || true
+        kill "$ttyd_pid" 2>/dev/null || true
+    fi
+    if [ -n "${nginx_pid:-}" ]; then
+        kill "$nginx_pid" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM
+wait -n "$ttyd_pid" "$nginx_pid"
+status=$?
+cleanup
+wait || true
+exit "$status"

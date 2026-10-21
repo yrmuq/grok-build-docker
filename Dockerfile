@@ -33,6 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zsh \
         fzf \
         locales \
+        nginx \
+        apache2-utils \
     && printf 'en_US.UTF-8 UTF-8\n' > /etc/locale.gen \
     && locale-gen en_US.UTF-8 \
     && curl -fsSL https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64 -o /usr/local/bin/ttyd \
@@ -45,8 +47,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Entrypoint is root only so it can chown bind-mounted volumes, then drops to coder.
 RUN groupadd -g 1000 coder \
     && useradd -m -u 1000 -g 1000 -s /usr/bin/zsh coder \
-    && mkdir -p /core/bin /utilities /skills /projects /app \
-    && chown -R 1000:1000 /core /utilities /skills /projects /app /home/coder
+    && mkdir -p /core/bin /utilities /skills /projects /terminal /app \
+    && chown -R 1000:1000 /core /utilities /skills /projects /terminal /app /home/coder
 
 # Hard-block apt for every user, including absolute /usr/bin/apt paths.
 RUN printf '%s\n' \
@@ -61,9 +63,10 @@ RUN printf '%s\n' \
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY tab.sh /app/tab.sh
-COPY index.html /app/index.html
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY terminal/ /opt/terminal-defaults/
 RUN chmod 755 /usr/local/bin/entrypoint.sh /app/tab.sh \
-    && chown -R 1000:1000 /app
+    && chown -R 1000:1000 /app /opt/terminal-defaults
 
 WORKDIR /projects
 EXPOSE 7681
