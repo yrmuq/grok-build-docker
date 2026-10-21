@@ -95,11 +95,26 @@ materialize_bin() {
 # binary survives a new container without that ephemeral home.
 if [ ! -x /core/bin/grok ] || [ -L /core/bin/grok ]; then
     echo "Downloading Grok Build into /core/bin ..."
-    if curl -fsSL https://x.ai/cli/install.sh | as_coder bash; then
-        materialize_bin grok
-        materialize_bin agent
+    install_log=/core/grok-install.log
+    : > "$install_log"
+    if curl -fsSL https://x.ai/cli/install.sh -o /tmp/grok-install.sh; then
+        chown 1000:1000 /tmp/grok-install.sh
+        if as_coder bash /tmp/grok-install.sh >>"$install_log" 2>&1; then
+            materialize_bin grok
+            materialize_bin agent
+        else
+            echo "WARNING: grok install failed. See /core/grok-install.log" | tee -a "$install_log" >&2
+        fi
+        rm -f /tmp/grok-install.sh
     else
-        echo "WARNING: grok install failed. The shell will still start." >&2
+        echo "WARNING: could not download https://x.ai/cli/install.sh" | tee -a "$install_log" >&2
+    fi
+    chown 1000:1000 "$install_log" 2>/dev/null || true
+fi
+if [ -x /core/bin/grok ] && [ ! -L /core/bin/grok ]; then
+    ln -sfn /core/bin/grok /usr/local/bin/grok
+    if [ -e /core/bin/agent ]; then
+        ln -sfn /core/bin/agent /usr/local/bin/agent
     fi
 fi
 
@@ -118,14 +133,19 @@ export NPM_CONFIG_PREFIX=/utilities/npm
 export PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin"
 eval "$(mise activate zsh)"
 eval "$(starship init zsh)"
-echo "Ready. Sign in once with 'grok login --device-auth', then run 'grok'. Install tools with 'mise use -g <tool>@latest'."
+if ! command -v grok >/dev/null 2>&1; then
+  echo "grok is not on PATH. Last lines of /core/grok-install.log:"
+  tail -n 40 /core/grok-install.log 2>/dev/null || true
+else
+  echo "Ready. Sign in once with 'grok login --device-auth', then run 'grok'. Install tools with 'mise use -g <tool>@latest'."
+fi
 EOF
 
 cat << 'EOF' > /home/coder/.tmux.conf
 set -g default-terminal "tmux-256color"
 set -ga terminal-overrides ",*256col*:Tc"
 set -g default-shell /usr/bin/zsh
-set -g mouse on
+set -g mouse off
 set -g status off
 set -g set-titles on
 set -g set-titles-string "#S"
@@ -159,6 +179,21 @@ for theme in /opt/terminal-defaults/themes/*.json; do
 done
 chmod -R a+rX /terminal
 chown 1000:1000 /terminal /terminal/index.html /terminal/themes
+
+# Older volumes were seeded before copy-on-select. Insert the helper once.
+if [ -f /terminal/index.html ] && ! grep -q 'grok-copy-selection' /terminal/index.html; then
+    awk '
+        { print }
+        /addon-web-links@0\.11\.0\/lib\/addon-web-links\.min\.js/ && !done {
+            print "  <script src=\"/ui/copy-selection.js\" data-grok-copy-selection></script>"
+            done = 1
+        }
+    ' /terminal/index.html > /tmp/index.html.new
+    if grep -q 'grok-copy-selection' /tmp/index.html.new; then
+        cat /tmp/index.html.new > /terminal/index.html
+    fi
+    rm -f /tmp/index.html.new
+fi
 
 if [ -n "$AUTH_PASSWORD" ]; then
     if [ -z "$AUTH_USER" ]; then
