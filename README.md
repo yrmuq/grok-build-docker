@@ -54,7 +54,7 @@ services:
 
   grok_build:
     container_name: grok_build
-    build: [https://github.com/YOUR_GITHUB_USER/grok-build-docker.git#main](https://github.com/YOUR_GITHUB_USER/grok-build-docker.git#main)
+    build: https://github.com/yrmuq/grok-build-docker.git#main
     image: grok_build:latest
     ports:
       - ${GROK_BUILD}:7681
