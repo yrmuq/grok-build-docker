@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grok Build Workspace</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" />
+  <style>
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Fira Code';
+      src: url('https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/woff2/FiraCode-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    :root {
+      --bar-bg: #181825;
+      --bar-fg: #cdd6f4;
+      --tab-bg: #1e1e2e;
+      --tab-active-bg: #313244;
+      --accent: #cba6f7;
+      --danger: #f38ba8;
+      --border: #45475a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--tab-bg); font-family: system-ui, -apple-system, sans-serif; }
+    #topbar, #topbar * { user-select: none; }
+    #app { display: flex; flex-direction: column; width: 100%; height: 100%; }
+    #topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 40px; background: var(--bar-bg); color: var(--bar-fg);
+      border-bottom: 1px solid var(--border); padding: 0 8px; gap: 8px;
+    }
+    #tabs-container { display: flex; align-items: center; gap: 4px; overflow-x: auto; flex: 1; height: 100%; }
+    .tab {
+      display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 30px;
+      background: var(--tab-bg); color: var(--bar-fg); border: 1px solid var(--border);
+      border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap; transition: 0.15s;
+    }
+    .tab.active { background: var(--tab-active-bg); border-color: var(--accent); font-weight: 600; }
+    .tab-close {
+      color: var(--bar-fg); opacity: 0.6; font-weight: bold; padding: 0 4px; border-radius: 4px;
+    }
+    .tab-close:hover { opacity: 1; background: var(--danger); color: #11111b; }
+    .reconnect-badge {
+      background: var(--danger); color: #11111b; font-size: 11px; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px; cursor: pointer;
+    }
+    #add-tab-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--tab-bg); color: var(--bar-fg); font-size: 18px; cursor: pointer;
+    }
+    #add-tab-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #controls { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    select, .step-btn {
+      background: var(--tab-bg); color: var(--bar-fg); border: 1px solid var(--border);
+      border-radius: 5px; height: 28px; padding: 0 8px; cursor: pointer; font-size: 12px;
+    }
+    .step-btn { min-width: 36px; width: auto; padding: 0 6px; font-weight: bold; }
+    .step-btn:hover, select:hover { border-color: var(--accent); }
+    #font-size-label { min-width: 32px; text-align: center; }
+    #terminals { position: relative; flex: 1; width: 100%; height: calc(100% - 40px); }
+    .term-wrap { position: absolute; inset: 0; padding: 4px; display: none; }
+    .term-wrap.active { display: block; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="topbar">
+      <div id="tabs-container">
+        <div id="tabs-list" style="display:flex;gap:4px;"></div>
+        <button id="add-tab-btn" title="New Tab">+</button>
+      </div>
+      <div id="controls">
+        <select id="theme-select" title="Theme">
+          <option value="catppuccin">Catppuccin Mocha</option>
+          <option value="tokyonight">Tokyo Night</option>
+          <option value="dracula">Dracula</option>
+          <option value="gruvbox">Gruvbox Dark</option>
+          <option value="latte">Catppuccin Latte (Light)</option>
+        </select>
+        <select id="font-select" title="Font Family">
+          <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+          <option value="'Fira Code', monospace">Fira Code</option>
+          <option value="monospace">System Monospace</option>
+        </select>
+        <button class="step-btn" id="font-dec" title="Decrease Font Size">[-]</button>
+        <span id="font-size-label">15px</span>
+        <button class="step-btn" id="font-inc" title="Increase Font Size">[+]</button>
+      </div>
+    </div>
+    <div id="terminals"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
+  <script>
+    const THEMES = {
+      catppuccin: {
+        background: '#1e1e2e', foreground: '#cdd6f4', cursor: '#f5e0dc', selectionBackground: '#585b70',
+        black: '#45475a', red: '#f38ba8', green: '#a6e3a1', yellow: '#f9e2af',
+        blue: '#89b4fa', magenta: '#f5c2e7', cyan: '#94e2d5', white: '#bac2de',
+        brightBlack: '#585b70', brightRed: '#f38ba8', brightGreen: '#a6e3a1', brightYellow: '#f9e2af',
+        brightBlue: '#89b4fa', brightMagenta: '#f5c2e7', brightCyan: '#94e2d5', brightWhite: '#a6adc8',
+        barBg: '#181825', barFg: '#cdd6f4', tabBg: '#1e1e2e', tabActive: '#313244', accent: '#cba6f7', border: '#45475a'
+      },
+      tokyonight: {
+        background: '#1a1b26', foreground: '#c0caf5', cursor: '#c0caf5', selectionBackground: '#33467c',
+        black: '#15161e', red: '#f7768e', green: '#9ece6a', yellow: '#e0af68',
+        blue: '#7aa2f7', magenta: '#bb9af7', cyan: '#7dcfff', white: '#a9b1d6',
+        brightBlack: '#414868', brightRed: '#f7768e', brightGreen: '#9ece6a', brightYellow: '#e0af68',
+        brightBlue: '#7aa2f7', brightMagenta: '#bb9af7', brightCyan: '#7dcfff', brightWhite: '#c0caf5',
+        barBg: '#16161e', barFg: '#c0caf5', tabBg: '#1a1b26', tabActive: '#292e42', accent: '#7aa2f7', border: '#414868'
+      },
+      dracula: {
+        background: '#282a36', foreground: '#f8f8f2', cursor: '#f8f8f2', selectionBackground: '#44475a',
+        black: '#21222c', red: '#ff5555', green: '#50fa7b', yellow: '#f1fa8c',
+        blue: '#bd93f9', magenta: '#ff79c6', cyan: '#8be9fd', white: '#f8f8f2',
+        brightBlack: '#6272a4', brightRed: '#ff6e6e', brightGreen: '#69ff94', brightYellow: '#ffffa5',
+        brightBlue: '#d6acff', brightMagenta: '#ff92df', brightCyan: '#a4ffff', brightWhite: '#ffffff',
+        barBg: '#191a21', barFg: '#f8f8f2', tabBg: '#282a36', tabActive: '#44475a', accent: '#bd93f9', border: '#6272a4'
+      },
+      gruvbox: {
+        background: '#282828', foreground: '#ebdbb2', cursor: '#ebdbb2', selectionBackground: '#504945',
+        black: '#282828', red: '#cc241d', green: '#98971a', yellow: '#d79921',
+        blue: '#458588', magenta: '#b16286', cyan: '#689d6a', white: '#a89984',
+        brightBlack: '#928374', brightRed: '#fb4934', brightGreen: '#b8bb26', brightYellow: '#fabd2f',
+        brightBlue: '#83a598', brightMagenta: '#d3869b', brightCyan: '#8ec07c', brightWhite: '#ebdbb2',
+        barBg: '#1d2021', barFg: '#ebdbb2', tabBg: '#282828', tabActive: '#3c3836', accent: '#fabd2f', border: '#504945'
+      },
+      latte: {
+        background: '#eff1f5', foreground: '#4c4f69', cursor: '#dc8a78', selectionBackground: '#acb0be',
+        black: '#5c5f77', red: '#d20f39', green: '#40a02b', yellow: '#df8e1d',
+        blue: '#1e66f5', magenta: '#ea76cb', cyan: '#179299', white: '#acb0be',
+        brightBlack: '#6c6f85', brightRed: '#d20f39', brightGreen: '#40a02b', brightYellow: '#df8e1d',
+        brightBlue: '#1e66f5', brightMagenta: '#ea76cb', brightCyan: '#179299', brightWhite: '#bcc0cc',
+        barBg: '#e6e9ef', barFg: '#4c4f69', tabBg: '#eff1f5', tabActive: '#ccd0da', accent: '#8839ef', border: '#bcc0cc'
+      }
+    };
+
+    let currentTheme = localStorage.getItem('grok_theme') || 'catppuccin';
+    let currentFont = localStorage.getItem('grok_font') || "'JetBrains Mono', monospace";
+    let currentFontSize = parseInt(localStorage.getItem('grok_font_size') || '15', 10);
+    const tabs = new Map();
+    let activeTabId = null;
+    const textEncoder = new TextEncoder();
+    const textDecoder = new TextDecoder();
+
+    async function fetchToken() {
+      try {
+        const res = await fetch('/token', { credentials: 'same-origin' });
+        if (!res.ok) return '';
+        const data = await res.json();
+        return data.token || '';
+      } catch {
+        return '';
+      }
+    }
+
+    function wsUrl(args = []) {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const query = args.map((a) => `arg=${encodeURIComponent(a)}`).join('&');
+      return `${proto}//${location.host}/ws${query ? '?' + query : ''}`;
+    }
+
+    function sendResize(tab) {
+      if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+        const msg = JSON.stringify({ columns: tab.term.cols, rows: tab.term.rows });
+        tab.ws.send(textEncoder.encode('1' + msg));
+      }
+    }
+
+    async function runControlCommand(args) {
+      const token = await fetchToken();
+      return new Promise((resolve) => {
+        const ws = new WebSocket(wsUrl(args), ['tty']);
+        ws.binaryType = 'arraybuffer';
+        let output = '';
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          resolve(output);
+        };
+        const timer = setTimeout(() => {
+          try { ws.close(); } catch {}
+          finish();
+        }, 8000);
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ AuthToken: token, columns: 80, rows: 24 }));
+        };
+        ws.onmessage = (ev) => {
+          const view = new Uint8Array(ev.data);
+          const cmd = String.fromCharCode(view[0]);
+          if (cmd === '0') output += textDecoder.decode(view.slice(1));
+        };
+        ws.onclose = () => {
+          clearTimeout(timer);
+          finish();
+        };
+        ws.onerror = () => {
+          clearTimeout(timer);
+          finish();
+        };
+      });
+    }
+
+    async function listExistingSessions() {
+      const out = await runControlCommand(['--list']);
+      const match = out.match(/__TMUX_SESSIONS__:([^\r\n]*)/);
+      if (!match || !match[1].trim()) return [];
+      return match[1].trim().split(',').filter(Boolean);
+    }
+
+    function applyChromeTheme(t) {
+      const root = document.documentElement.style;
+      root.setProperty('--bar-bg', t.barBg);
+      root.setProperty('--bar-fg', t.barFg);
+      root.setProperty('--tab-bg', t.tabBg);
+      root.setProperty('--tab-active-bg', t.tabActive);
+      root.setProperty('--accent', t.accent);
+      root.setProperty('--border', t.border);
+      document.body.style.background = t.background;
+    }
+
+    function updateAllTerminalSettings() {
+      const t = THEMES[currentTheme] || THEMES.catppuccin;
+      applyChromeTheme(t);
+      document.getElementById('font-size-label').textContent = `${currentFontSize}px`;
+      tabs.forEach((tab) => {
+        tab.term.options.theme = t;
+        tab.term.options.fontFamily = currentFont;
+        tab.term.options.fontSize = currentFontSize;
+        if (tab.id === activeTabId) {
+          tab.fitAddon.fit();
+          sendResize(tab);
+        }
+      });
+    }
+
+    async function connectTabSocket(tab) {
+      if (tab.ws) {
+        try { tab.ws.close(); } catch {}
+      }
+      tab.dead = false;
+      tab.term.reset();
+      renderTabsBar();
+      const token = await fetchToken();
+      const args = tab.sessionName ? ['--session', tab.sessionName] : [];
+      const ws = new WebSocket(wsUrl(args), ['tty']);
+      ws.binaryType = 'arraybuffer';
+      tab.ws = ws;
+
+      ws.onopen = () => {
+        tab.fitAddon.fit();
+        ws.send(JSON.stringify({
+          AuthToken: token,
+          columns: tab.term.cols,
+          rows: tab.term.rows
+        }));
+        sendResize(tab);
+      };
+
+      ws.onmessage = (ev) => {
+        const view = new Uint8Array(ev.data);
+        const cmd = String.fromCharCode(view[0]);
+        const payload = view.slice(1);
+        if (cmd === '0') {
+          tab.term.write(payload);
+        } else if (cmd === '1') {
+          const title = textDecoder.decode(payload);
+          if (!tab.sessionName && title) {
+            const m = title.match(/(chat\d+)/);
+            if (m) {
+              tab.sessionName = m[1];
+              renderTabsBar();
+            }
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        if (!tab.closing) {
+          tab.dead = true;
+          renderTabsBar();
+        }
+      };
+    }
+
+    function createTab(sessionName = null) {
+      const id = 'tab_' + Math.random().toString(36).slice(2, 9);
+      if (!sessionName) {
+        let idx = 0;
+        const used = new Set(Array.from(tabs.values()).map((t) => t.sessionName));
+        while (used.has(`chat${idx}`)) idx++;
+        sessionName = `chat${idx}`;
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'term-wrap';
+      document.getElementById('terminals').appendChild(wrap);
+
+      const term = new Terminal({
+        cursorBlink: true,
+        scrollback: 10000,
+        fontFamily: currentFont,
+        fontSize: currentFontSize,
+        theme: THEMES[currentTheme] || THEMES.catppuccin,
+        allowProposedApi: true
+      });
+      const fitAddon = new FitAddon.FitAddon();
+      const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+      term.loadAddon(fitAddon);
+      term.loadAddon(webLinksAddon);
+      term.open(wrap);
+
+      const tab = { id, sessionName, term, fitAddon, wrap, ws: null, dead: false, closing: false };
+      term.onData((data) => {
+        if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+          tab.ws.send(textEncoder.encode('0' + data));
+        }
+      });
+
+      tabs.set(id, tab);
+      switchTab(id);
+      connectTabSocket(tab);
+      return tab;
+    }
+
+    function switchTab(id) {
+      activeTabId = id;
+      tabs.forEach((t) => {
+        const isActive = t.id === id;
+        t.wrap.classList.toggle('active', isActive);
+        if (isActive) {
+          setTimeout(() => {
+            t.fitAddon.fit();
+            sendResize(t);
+            t.term.focus();
+          }, 10);
+        }
+      });
+      renderTabsBar();
+    }
+
+    async function closeTab(id, ev) {
+      ev.stopPropagation();
+      const tab = tabs.get(id);
+      if (!tab) return;
+      if (!confirm(`Close and terminate session "${tab.sessionName}"?`)) return;
+      tab.closing = true;
+      if (tab.ws) {
+        try { tab.ws.close(); } catch {}
+      }
+      await runControlCommand(['--kill', tab.sessionName]);
+      tab.term.dispose();
+      tab.wrap.remove();
+      tabs.delete(id);
+
+      if (activeTabId === id) {
+        const remaining = Array.from(tabs.keys());
+        if (remaining.length > 0) {
+          switchTab(remaining[remaining.length - 1]);
+        } else {
+          createTab();
+        }
+      } else {
+        renderTabsBar();
+      }
+    }
+
+    async function renameTab(id) {
+      const tab = tabs.get(id);
+      if (!tab) return;
+      const next = prompt('Rename session:', tab.sessionName);
+      if (!next || next.trim() === '' || next === tab.sessionName) return;
+      const clean = next.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      await runControlCommand(['--rename', tab.sessionName, clean]);
+      tab.sessionName = clean;
+      renderTabsBar();
+    }
+
+    function renderTabsBar() {
+      const list = document.getElementById('tabs-list');
+      list.innerHTML = '';
+      tabs.forEach((tab) => {
+        const el = document.createElement('div');
+        el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+        el.onclick = () => switchTab(tab.id);
+        el.ondblclick = () => renameTab(tab.id);
+
+        const title = document.createElement('span');
+        title.textContent = tab.sessionName;
+        el.appendChild(title);
+
+        if (tab.dead) {
+          const badge = document.createElement('span');
+          badge.className = 'reconnect-badge';
+          badge.textContent = 'Reconnect';
+          badge.onclick = (e) => {
+            e.stopPropagation();
+            connectTabSocket(tab);
+          };
+          el.appendChild(badge);
+        }
+
+        const closeBtn = document.createElement('span');
+        closeBtn.className = 'tab-close';
+        closeBtn.textContent = '×';
+        closeBtn.title = 'Close Session';
+        closeBtn.onclick = (e) => closeTab(tab.id, e);
+        el.appendChild(closeBtn);
+
+        list.appendChild(el);
+      });
+    }
+
+    document.getElementById('add-tab-btn').onclick = () => createTab();
+    document.getElementById('theme-select').value = currentTheme;
+    document.getElementById('theme-select').onchange = (e) => {
+      currentTheme = e.target.value;
+      localStorage.setItem('grok_theme', currentTheme);
+      updateAllTerminalSettings();
+    };
+
+    document.getElementById('font-select').value = currentFont;
+    document.getElementById('font-select').onchange = (e) => {
+      currentFont = e.target.value;
+      localStorage.setItem('grok_font', currentFont);
+      updateAllTerminalSettings();
+    };
+
+    document.getElementById('font-dec').onclick = () => {
+      if (currentFontSize > 10) {
+        currentFontSize--;
+        localStorage.setItem('grok_font_size', String(currentFontSize));
+        updateAllTerminalSettings();
+      }
+    };
+
+    document.getElementById('font-inc').onclick = () => {
+      if (currentFontSize < 28) {
+        currentFontSize++;
+        localStorage.setItem('grok_font_size', String(currentFontSize));
+        updateAllTerminalSettings();
+      }
+    };
+
+    window.addEventListener('resize', () => {
+      const tab = tabs.get(activeTabId);
+      if (tab) {
+        tab.fitAddon.fit();
+        sendResize(tab);
+      }
+    });
+
+    (async () => {
+      updateAllTerminalSettings();
+      const existing = await listExistingSessions();
+      if (existing.length > 0) {
+        existing.forEach((name) => createTab(name));
+      } else {
+        createTab('chat0');
+      }
+    })();
+  </script>
+</body>
+</html>
