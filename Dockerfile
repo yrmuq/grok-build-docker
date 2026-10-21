@@ -44,9 +44,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Entrypoint is root only so it can chown bind-mounted volumes, then drops to coder.
-RUN groupadd -g 1000 coder \
-    && useradd -m -u 1000 -g 1000 -s /usr/bin/zsh coder \
+# Ubuntu 26.04 already has uid/gid 1000 (user ubuntu). Reuse that id as coder.
+RUN existing_group="$(getent group 1000 | cut -d: -f1)" \
+    && if [ -z "$existing_group" ]; then \
+         groupadd -g 1000 coder; \
+       elif [ "$existing_group" != "coder" ]; then \
+         groupmod -n coder "$existing_group"; \
+       fi \
+    && existing_user="$(getent passwd 1000 | cut -d: -f1)" \
+    && if [ -z "$existing_user" ]; then \
+         useradd -m -u 1000 -g 1000 -s /usr/bin/zsh coder; \
+       else \
+         if [ "$existing_user" != "coder" ]; then usermod -l coder "$existing_user"; fi; \
+         usermod -d /home/coder -m -g 1000 -s /usr/bin/zsh coder; \
+       fi \
     && mkdir -p /core/bin /utilities /skills /projects /terminal /app \
     && chown -R 1000:1000 /core /utilities /skills /projects /terminal /app /home/coder
 
