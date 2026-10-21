@@ -32,7 +32,7 @@ as_coder() {
         UV_PYTHON_INSTALL_DIR=/utilities/uv/python \
         UV_TOOL_DIR=/utilities/uv/tools \
         NPM_CONFIG_PREFIX=/utilities/npm \
-        PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/bin:/usr/bin:/bin" \
+        PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin" \
         LANG="${LANG:-en_US.UTF-8}" \
         LC_ALL="${LC_ALL:-en_US.UTF-8}" \
         TZ="${TZ:-UTC}" \
@@ -119,7 +119,7 @@ export UV_CACHE_DIR=/utilities/uv/cache
 export UV_PYTHON_INSTALL_DIR=/utilities/uv/python
 export UV_TOOL_DIR=/utilities/uv/tools
 export NPM_CONFIG_PREFIX=/utilities/npm
-export PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin"
 eval "$(mise activate zsh)"
 eval "$(starship init zsh)"
 echo "Ready. Sign in once with 'grok login --device-auth', then run 'grok'. Install tools with 'mise use -g <tool>@latest'."

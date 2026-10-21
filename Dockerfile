@@ -14,7 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     UV_PYTHON_INSTALL_DIR=/utilities/uv/python \
     UV_TOOL_DIR=/utilities/uv/tools \
     NPM_CONFIG_PREFIX=/utilities/npm \
-    PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/bin:/usr/bin:/bin"
+    PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
