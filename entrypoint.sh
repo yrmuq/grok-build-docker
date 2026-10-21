@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AUTH_USER="${USER:-admin}"
+AUTH_USER="${USER:-}"
 AUTH_PASSWORD="${PASSWORD:-}"
-if [ -z "$AUTH_PASSWORD" ]; then
-    echo "ERROR: PASSWORD is required for ttyd basic auth." >&2
-    exit 1
-fi
 
 # Bind mounts created by Docker are root-owned. Fix the mount roots only.
 mkdir -p /core/bin /skills /projects /terminal/themes /home/coder
@@ -164,8 +160,17 @@ done
 chmod -R a+rX /terminal
 chown 1000:1000 /terminal /terminal/index.html /terminal/themes
 
-htpasswd -bc /etc/nginx/ttyd.htpasswd "$AUTH_USER" "$AUTH_PASSWORD" >/dev/null
-chmod 644 /etc/nginx/ttyd.htpasswd
+if [ -n "$AUTH_PASSWORD" ]; then
+    if [ -z "$AUTH_USER" ]; then
+        AUTH_USER=admin
+    fi
+    htpasswd -bc /etc/nginx/ttyd.htpasswd "$AUTH_USER" "$AUTH_PASSWORD" >/dev/null
+    chmod 644 /etc/nginx/ttyd.htpasswd
+    echo "Web UI basic auth enabled for ${AUTH_USER}."
+else
+    sed -i '/auth_basic/d' /etc/nginx/nginx.conf
+    echo "PASSWORD is empty; web UI is open without basic auth."
+fi
 mkdir -p /tmp/nginx-client /tmp/nginx-proxy /tmp/nginx-fastcgi /tmp/nginx-uwsgi /tmp/nginx-scgi
 
 as_coder ttyd -i 127.0.0.1 -p 7682 -I /terminal/index.html -a -W -m 10 /app/tab.sh &
