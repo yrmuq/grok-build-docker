@@ -10,7 +10,7 @@
 
 ---
 
-![Grok Build Docker](docs/screenshot.png)
+![Grok Build Docker](docs/screenshot.webp)
 
 ## ✨ Features
 
