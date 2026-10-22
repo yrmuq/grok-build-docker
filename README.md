@@ -2,7 +2,7 @@
   <img src="docs/logo.png" alt="Grok Build Docker" width="96">
 </p>
 
-# Grok Build Docker (Unofficial)
+<h1 align="center">Grok Build Docker (Unofficial)</h1>
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Base Image: Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04-E95420?logo=ubuntu&logoColor=white)](https://hub.docker.com/_/ubuntu)
