@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v2 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v3 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -385,7 +385,7 @@
       const finish = async (save) => {
         if (done) return;
         done = true;
-        const next = input.value.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        const next = input.value.trim().replace(/[.:]+/g, '').replace(/\s+/g, '-');
         if (save && next && next !== tab.sessionName) {
           await runControlCommand(['--rename', tab.sessionName, next]);
           tab.sessionName = next;
@@ -473,6 +473,7 @@
       'oscura-midnight': 'oscura-midnight'
     };
     let themePollBusy = false;
+    let applyingRemoteTheme = false;
 
     function canonicalTheme(name) {
       return THEME_ALIASES[String(name || '').trim().toLowerCase()] || '';
@@ -481,11 +482,13 @@
     function applyThemeFromGrok(name) {
       const id = canonicalTheme(name);
       if (!id || !THEMES[id] || id === currentTheme) return;
+      applyingRemoteTheme = true;
       currentTheme = id;
       localStorage.setItem('grok_theme', id);
       const select = document.getElementById('theme-select');
       if (select.value !== id) select.value = id;
       updateAllTerminalSettings();
+      applyingRemoteTheme = false;
     }
 
     async function pollGrokTheme() {
@@ -501,6 +504,7 @@
     }
     document.getElementById('add-tab-btn').onclick = () => createTab();
     document.getElementById('theme-select').onchange = (e) => {
+      if (applyingRemoteTheme) return;
       currentTheme = e.target.value;
       localStorage.setItem('grok_theme', currentTheme);
       updateAllTerminalSettings();

@@ -40,6 +40,17 @@ case "${1:-}" in
             exit 0
         fi
         touch /core/config.toml
+        PREV="$(awk '
+            /^\[/ { in_ui = ($0 ~ /^\[ui\][[:space:]]*$/) }
+            in_ui && $0 ~ /^[[:space:]]*theme[[:space:]]*=/ {
+                line = $0
+                sub(/^[^=]*=[[:space:]]*/, "", line)
+                gsub(/["'\'']/, "", line)
+                gsub(/[[:space:]]/, "", line)
+                print line
+                exit
+            }
+        ' /core/config.toml 2>/dev/null || true)"
         awk -v theme="$THEME" '
             /^\[/ {
                 if (in_ui && !wrote) {
@@ -66,6 +77,9 @@ case "${1:-}" in
             }
         ' /core/config.toml > /tmp/grok-config.toml
         mv /tmp/grok-config.toml /core/config.toml
+        if [ "$PREV" = "$THEME" ]; then
+            exit 0
+        fi
         while IFS= read -r session; do
             [ -n "$session" ] || continue
             cmd="$(tmux list-panes -t "$session" -F '#{pane_current_command}' 2>/dev/null | head -n 1 || true)"
