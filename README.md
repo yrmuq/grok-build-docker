@@ -13,11 +13,11 @@
 ## ✨ Features
 
 * **Zero-Bloat Persistent Architecture:** Separated host-mounted directories for core agent binaries (`/core`), languages & CLI tools (`/utilities`), custom agent skills (`/skills`), and user workspaces (`/projects`).
-* **Custom Multi-Tab Web UI (`/app/index.html`):**
+* **Custom Multi-Tab Web UI (`/terminal/index.html`):**
   * Built on top of `ttyd`, `tmux`, and `xterm.js` — 100% mouse-driven top bar with no keyboard shortcuts required.
   * **Persistent Sessions:** Closing the browser tab detaches seamlessly; reopening restores all active `tmux` sessions (`chat0`, `chat1`, etc.) as browser tabs.
-  * **Tab Management:** Click `[+]` to spawn a new session, click to switch, double-click to rename, click `[×]` to terminate, or click the `Reconnect` badge if a socket drops.
-  * **Live Theme & Font Switcher:** Switch between **Catppuccin Mocha**, **Tokyo Night**, **Dracula**, **Gruvbox Dark**, and **Catppuccin Latte (Light)**, plus live font family (**JetBrains Mono**, **Fira Code**, **System Monospace**) and font-size controls persisted in `localStorage`.
+  * **Tab Management:** Click `[+]` to spawn a new session, click to switch, double-click the name to rename, click `[×]` to terminate, or click the `Reconnect` badge if a socket drops.
+  * **Live Theme & Font Switcher:** **GrokNight**, **GrokDay**, **Tokyo Night**, **Rose Pine Moon**, and **Oscura Midnight**. These are the same names Grok uses for `/theme`. Changing the menu updates the running Grok session, and `/theme` inside Grok updates the menu within a couple of seconds. Font family (**JetBrains Mono**, **Fira Code**, **System Monospace**) and font size stay in `localStorage`. Theme files live in `/terminal/themes/` and can be edited without rebuilding the image.
 * **Sandboxed Package Management via `mise`:**
   * Runs as a non-root user (`coder`, `UID:GID 1000:1000`) with `sudo`, `apt`, and `apt-get` strictly blocked at runtime.
   * An `apt` wrapper redirects the AI agent to install all programming languages, compilers, and CLI tools directly into the persistent `/utilities` volume using **`mise`**.
@@ -26,7 +26,7 @@
 
 ## 📂 Directory Architecture
 
-All stateful data lives outside the container image across 4 dedicated volumes:
+All stateful data lives outside the container image across 5 dedicated volumes:
 
 | Container Path | Purpose |
 | :--- | :--- |
@@ -34,6 +34,7 @@ All stateful data lives outside the container image across 4 dedicated volumes:
 | `/utilities` | Persistent storage for all runtimes and tools installed via `mise`, `cargo`, `rustup`, `uv`, and `npm`. Survives container rebuilds. |
 | `/skills` | Custom Grok Build skills (`/skills/<skill_name>/SKILL.md`), automatically linked to `/core/skills`. |
 | `/projects` | Default `WORKDIR` for your Git repositories and coding projects. |
+| `/terminal` | The web UI (`index.html`) and theme JSON files. Edits apply on refresh. |
 
 ---
 
@@ -42,7 +43,7 @@ All stateful data lives outside the container image across 4 dedicated volumes:
 Create the persistent folders on your host with UID/GID `1000:1000`:
 
 ```bash
-mkdir -p docker/data/grok_build/{core,utilities,skills,projects}
+mkdir -p docker/data/grok_build/{core,utilities,skills,projects,terminal}
 chown -R 1000:1000 docker/data/grok_build
 
 ```
@@ -63,6 +64,7 @@ services:
       - ${LOCATION}/docker/data/grok_build/utilities:/utilities
       - ${LOCATION}/docker/data/grok_build/skills:/skills
       - ${LOCATION}/docker/data/grok_build/projects:/projects
+      - ${LOCATION}/docker/data/grok_build/terminal:/terminal
     environment:
       - TZ=${TZ}
       - USER=${USER}
@@ -98,7 +100,7 @@ docker compose up -d
 
 ## 🔑 Authentication & Usage
 
-1. Open `http://<SERVER_IP>:7681` in your browser and log in with `USER` and `PASSWORD` from your `.env`.
+1. Open `http://<SERVER_IP>:7681` in your browser. Log in with `USER` and `PASSWORD` from your `.env`. If `PASSWORD` is empty, the page opens with no login.
 2. Authenticate Grok Build using your xAI / X subscription via headless device auth:
 ```bash
 grok login --device-auth
@@ -119,6 +121,8 @@ grok
 mise use -g python@latest rust@latest go@latest gh@latest
 
 ```
+
+6. Update the CLI later with `grok update`. The binary stays on the `/core` volume.
 
 
 
@@ -144,6 +148,9 @@ This project integrates with or fetches the following third-party open-source an
 | **Starship** | Cross-shell terminal prompt | ISC License | https://github.com/starship/starship |
 | **JetBrains Mono** | Webfont loaded via CDN | SIL Open Font License 1.1 | https://github.com/JetBrains/JetBrainsMono |
 | **Fira Code** | Webfont loaded via CDN | SIL Open Font License 1.1 | https://github.com/tonsky/FiraCode |
-| **Catppuccin / Tokyo Night / Dracula / Gruvbox** | Terminal color palettes in `index.html` | MIT License | Community Theme Specifications |
+| **GrokNight / GrokDay** | Terminal palettes in `/terminal/themes/` | Apache-2.0 | https://github.com/xai-org/grok-build |
+| **Tokyo Night** | Terminal palette | MIT License | https://github.com/enkia/tokyo-night-vscode-theme |
+| **Rosé Pine Moon** | Terminal palette | MIT License | https://github.com/rose-pine/rose-pine-theme |
+| **Oscura Midnight** | Terminal palette | MIT License | https://github.com/narative/oscura |
 
 *"Grok" and "xAI" are trademarks of X.AI Corp. All third-party trademarks and logos belong to their respective owners.*
