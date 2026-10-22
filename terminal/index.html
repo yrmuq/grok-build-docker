@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- grok-tab-rename-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -48,7 +49,11 @@
     .tab-close {
       color: var(--bar-fg); opacity: 0.6; font-weight: bold; padding: 0 4px; border-radius: 4px;
     }
-    .tab-close:hover { opacity: 1; background: var(--danger); color: #11111b; }
+    .tab-rename {
+      width: 7rem; height: 22px; padding: 0 4px;
+      background: var(--tab-bg); color: var(--bar-fg);
+      border: 1px solid var(--accent); border-radius: 4px; font-size: 13px;
+    }
     .reconnect-badge {
       background: var(--danger); color: #11111b; font-size: 11px; font-weight: 700;
       padding: 2px 6px; border-radius: 4px; cursor: pointer;
@@ -101,7 +106,7 @@
   <script>
     let THEMES = {};
 
-    let currentTheme = localStorage.getItem('grok_theme') || 'catppuccin';
+    let currentTheme = localStorage.getItem('grok_theme') || 'groknight';
     let currentFont = localStorage.getItem('grok_font') || "'JetBrains Mono', monospace";
     let currentFontSize = parseInt(localStorage.getItem('grok_font_size') || '15', 10);
     const tabs = new Map();
@@ -329,7 +334,13 @@
           }, 10);
         }
       });
-      renderTabsBar();
+      paintActiveTab();
+    }
+
+    function paintActiveTab() {
+      document.querySelectorAll('#tabs-list .tab').forEach((el) => {
+        el.classList.toggle('active', el.dataset.id === activeTabId);
+      });
     }
 
     async function closeTab(id, ev) {
@@ -358,15 +369,40 @@
       }
     }
 
-    async function renameTab(id) {
+    function beginRename(id, titleEl) {
       const tab = tabs.get(id);
-      if (!tab) return;
-      const next = prompt('Rename session:', tab.sessionName);
-      if (!next || next.trim() === '' || next === tab.sessionName) return;
-      const clean = next.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-      await runControlCommand(['--rename', tab.sessionName, clean]);
-      tab.sessionName = clean;
-      renderTabsBar();
+      if (!tab || titleEl.dataset.editing === '1') return;
+      titleEl.dataset.editing = '1';
+      const input = document.createElement('input');
+      input.className = 'tab-rename';
+      input.value = tab.sessionName;
+      titleEl.replaceWith(input);
+      input.focus();
+      input.select();
+      let done = false;
+      const finish = async (save) => {
+        if (done) return;
+        done = true;
+        const next = input.value.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        if (save && next && next !== tab.sessionName) {
+          await runControlCommand(['--rename', tab.sessionName, next]);
+          tab.sessionName = next;
+        }
+        renderTabsBar();
+      };
+      input.onkeydown = (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          finish(true);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          finish(false);
+        }
+        event.stopPropagation();
+      };
+      input.onclick = (event) => event.stopPropagation();
+      input.ondblclick = (event) => event.stopPropagation();
+      input.onblur = () => finish(true);
     }
 
     function renderTabsBar() {
@@ -375,11 +411,16 @@
       tabs.forEach((tab) => {
         const el = document.createElement('div');
         el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+        el.dataset.id = tab.id;
         el.onclick = () => switchTab(tab.id);
-        el.ondblclick = () => renameTab(tab.id);
 
         const title = document.createElement('span');
         title.textContent = tab.sessionName;
+        title.ondblclick = (event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          beginRename(tab.id, title);
+        };
         el.appendChild(title);
 
         if (tab.dead) {

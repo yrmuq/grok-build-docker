@@ -167,19 +167,19 @@ fi
 
 cd /projects
 
-# Seed the mounted UI only where the host has not already provided a file.
-if [ ! -f /terminal/index.html ]; then
+# Seed the mounted UI. Replace an older page once so double-click rename is present.
+if [ ! -f /terminal/index.html ] || ! grep -q 'grok-tab-rename-v1' /terminal/index.html; then
     cp /opt/terminal-defaults/index.html /terminal/index.html
 fi
-if [ ! -f /terminal/themes/manifest.json ]; then
+# Replace the first theme pack. Later files the user adds are left alone.
+if [ ! -f /terminal/themes/.pack ] || [ "$(cat /terminal/themes/.pack 2>/dev/null)" != grok-open-1 ]; then
+    rm -f /terminal/themes/catppuccin.json /terminal/themes/dracula.json \
+        /terminal/themes/gruvbox.json /terminal/themes/latte.json
     cp /opt/terminal-defaults/themes/manifest.json /terminal/themes/manifest.json
+    cp /opt/terminal-defaults/themes/*.json /terminal/themes/
+    cp /opt/terminal-defaults/themes/NOTICE /terminal/themes/NOTICE
+    printf 'grok-open-1\n' > /terminal/themes/.pack
 fi
-for theme in /opt/terminal-defaults/themes/*.json; do
-    name="$(basename "$theme")"
-    if [ ! -f "/terminal/themes/${name}" ]; then
-        cp "$theme" "/terminal/themes/${name}"
-    fi
-done
 chmod -R a+rX /terminal
 chown 1000:1000 /terminal /terminal/index.html /terminal/themes
 
