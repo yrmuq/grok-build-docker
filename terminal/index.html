@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v6 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v7 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -103,7 +103,7 @@
       </div>
       <div id="controls">
         <select id="project-select" title="Project">
-          <option value="">Projects</option>
+          <option value="" hidden>Projects</option>
           <option value="+">+</option>
         </select>
         <select id="theme-select" title="Theme"></select>
@@ -344,6 +344,8 @@
       tabs.set(id, tab);
       switchTab(id);
       connectTabSocket(tab);
+      const projectSelect = document.getElementById('project-select');
+      if (projectSelect) projectSelect.value = '';
       return tab;
     }
 
@@ -541,6 +543,7 @@
       select.innerHTML = '';
       const placeholder = document.createElement('option');
       placeholder.value = '';
+      placeholder.hidden = true;
       placeholder.textContent = 'Projects';
       select.appendChild(placeholder);
       const plus = document.createElement('option');
