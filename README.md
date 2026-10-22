@@ -10,6 +10,8 @@
 
 ---
 
+![Grok Build Docker](docs/screenshot.png)
+
 ## ✨ Features
 
 * **Zero-Bloat Persistent Architecture:** Separated host-mounted directories for core agent binaries (`/core`), languages & CLI tools (`/utilities`), custom agent skills (`/skills`), and user workspaces (`/projects`).
@@ -17,6 +19,7 @@
   * Built on top of `ttyd`, `tmux`, and `xterm.js` — 100% mouse-driven top bar with no keyboard shortcuts required.
   * **Persistent Sessions:** Closing the browser tab detaches seamlessly; reopening restores all active `tmux` sessions (`chat0`, `chat1`, etc.) as browser tabs.
   * **Tab Management:** Click `[+]` to spawn a new session, click to switch, double-click the name to rename, click `[×]` to terminate, or click the `Reconnect` badge if a socket drops.
+  * **Projects:** The menu to the left of the themes lists folders in `/projects`. `+` asks for a name, creates that folder, then runs `cd` and `grok` when the active tab is at the shell prompt.
   * **Live Theme & Font Switcher:** **GrokNight**, **GrokDay**, **Tokyo Night**, **Rose Pine Moon**, and **Oscura Midnight**. These are the same names Grok uses for `/theme`. Changing the menu updates the running Grok session, and `/theme` inside Grok updates the menu within a couple of seconds. Font family (**JetBrains Mono**, **Fira Code**, **System Monospace**) and font size stay in `localStorage`. Theme files live in `/terminal/themes/` and can be edited without rebuilding the image.
 * **Sandboxed Package Management via `mise`:**
   * Runs as a non-root user (`coder`, `UID:GID 1000:1000`) with `sudo`, `apt`, and `apt-get` strictly blocked at runtime.
