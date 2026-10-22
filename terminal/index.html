@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v1 -->
+<!-- grok-theme-sync-v2 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -445,6 +445,51 @@
       });
     }
 
+    const THEME_ALIASES = {
+      groknight: 'groknight',
+      'grok-night': 'groknight',
+      dark: 'groknight',
+      grokday: 'grokday',
+      'grok-day': 'grokday',
+      light: 'grokday',
+      day: 'grokday',
+      tokyonight: 'tokyonight',
+      tokyo: 'tokyonight',
+      'tokyo-night': 'tokyonight',
+      rosepine: 'rosepine-moon',
+      'rose-pine': 'rosepine-moon',
+      'rosepine-moon': 'rosepine-moon',
+      'rose-pine-moon': 'rosepine-moon',
+      oscura: 'oscura-midnight',
+      'oscura-midnight': 'oscura-midnight'
+    };
+    let themePollBusy = false;
+
+    function canonicalTheme(name) {
+      return THEME_ALIASES[String(name || '').trim().toLowerCase()] || '';
+    }
+
+    function applyThemeFromGrok(name) {
+      const id = canonicalTheme(name);
+      if (!id || !THEMES[id] || id === currentTheme) return;
+      currentTheme = id;
+      localStorage.setItem('grok_theme', id);
+      const select = document.getElementById('theme-select');
+      if (select.value !== id) select.value = id;
+      updateAllTerminalSettings();
+    }
+
+    async function pollGrokTheme() {
+      if (themePollBusy || document.hidden) return;
+      themePollBusy = true;
+      try {
+        const out = await runControlCommand(['--theme-get']);
+        const match = out.match(/__GROK_THEME__:([^\r\n]*)/);
+        if (match) applyThemeFromGrok(match[1]);
+      } finally {
+        themePollBusy = false;
+      }
+    }
     document.getElementById('add-tab-btn').onclick = () => createTab();
     document.getElementById('theme-select').onchange = (e) => {
       currentTheme = e.target.value;
@@ -492,6 +537,8 @@
         return;
       }
       updateAllTerminalSettings();
+      pollGrokTheme();
+      setInterval(pollGrokTheme, 2000);
       const existing = await listExistingSessions();
       if (existing.length > 0) {
         existing.forEach((name) => createTab(name));

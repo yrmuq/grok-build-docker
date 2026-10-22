@@ -13,6 +13,27 @@ case "${1:-}" in
         fi
         exit 0
         ;;
+    --rename)
+        if [ -n "${2:-}" ] && [ -n "${3:-}" ]; then
+            tmux rename-session -t "$2" "$3" 2>/dev/null || true
+        fi
+        exit 0
+        ;;
+    --theme-get)
+        FOUND="$(awk '
+            /^\[/ { in_ui = ($0 ~ /^\[ui\][[:space:]]*$/) }
+            in_ui && $0 ~ /^[[:space:]]*theme[[:space:]]*=/ {
+                line = $0
+                sub(/^[^=]*=[[:space:]]*/, "", line)
+                gsub(/["'\'']/, "", line)
+                gsub(/[[:space:]]/, "", line)
+                print line
+                exit
+            }
+        ' /core/config.toml 2>/dev/null || true)"
+        printf '__GROK_THEME__:%s\n' "$FOUND"
+        exit 0
+        ;;
     --theme)
         THEME="${2:-}"
         if ! printf '%s' "$THEME" | grep -Eq '^[A-Za-z0-9_-]+$'; then
