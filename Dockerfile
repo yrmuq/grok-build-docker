@@ -37,7 +37,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2-utils \
     && printf 'en_US.UTF-8 UTF-8\n' > /etc/locale.gen \
     && locale-gen en_US.UTF-8 \
-    && curl -fsSL https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64 -o /usr/local/bin/ttyd \
+    && arch="$(uname -m)" \
+    && case "$arch" in \
+         x86_64) ttyd_arch=x86_64 ;; \
+         aarch64|arm64) ttyd_arch=aarch64 ;; \
+         *) echo "Unsupported architecture: $arch. Use x86_64 or arm64." >&2; exit 1 ;; \
+       esac \
+    && curl -fsSL "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.${ttyd_arch}" -o /usr/local/bin/ttyd \
     && chmod 755 /usr/local/bin/ttyd \
     && curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b /usr/local/bin \
     && curl -fsSL https://mise.jdx.dev/install.sh | MISE_INSTALL_PATH=/usr/local/bin/mise sh \

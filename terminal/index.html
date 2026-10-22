@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-audit-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -184,9 +184,12 @@
 
     async function listExistingSessions() {
       const out = await runControlCommand(['--list']);
-      const match = out.match(/__TMUX_SESSIONS__:([^\r\n]*)/);
-      if (!match || !match[1].trim()) return [];
-      return match[1].trim().split(',').filter(Boolean);
+      const names = [];
+      out.split('\n').forEach((line) => {
+        const match = line.match(/__SESSION__:(.*)/);
+        if (match && match[1].trim()) names.push(match[1].trim());
+      });
+      return names;
     }
 
     async function loadThemes() {
@@ -202,14 +205,20 @@
         if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) continue;
         const res = await fetch(`/themes/${id}.json?t=${bust}`, { cache: 'no-store', credentials: 'same-origin' });
         if (!res.ok) continue;
-        const theme = await res.json();
-        themes[id] = theme;
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = theme.name || id;
-        select.appendChild(opt);
+        try {
+          const theme = await res.json();
+          if (!theme || typeof theme !== 'object') continue;
+          themes[id] = theme;
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = theme.name || id;
+          select.appendChild(opt);
+        } catch (err) {
+          continue;
+        }
       }
       THEMES = themes;
+      if (!Object.keys(THEMES).length) throw new Error('themes');
       if (!THEMES[currentTheme]) currentTheme = Object.keys(THEMES)[0] || '';
       if (currentTheme) select.value = currentTheme;
     }
@@ -291,7 +300,7 @@
       tab.term.reset();
       renderTabsBar();
       const token = await fetchToken();
-      const args = tab.sessionName ? ['--session', tab.sessionName] : [];
+      const args = tab.sessionName ? ['--session', tab.sessionName] : ['--new'];
       const ws = new WebSocket(wsUrl(args), ['tty']);
       ws.binaryType = 'arraybuffer';
       tab.ws = ws;
@@ -314,12 +323,9 @@
           tab.term.write(payload);
         } else if (cmd === '1') {
           const title = textDecoder.decode(payload);
-          if (!tab.sessionName && title) {
-            const m = title.match(/(chat\d+)/);
-            if (m) {
-              tab.sessionName = m[1];
-              renderTabsBar();
-            }
+          if (!tab.sessionName && title && title.trim()) {
+            tab.sessionName = title.trim().split(/[\r\n]/)[0];
+            renderTabsBar();
           }
         }
       };
@@ -334,12 +340,6 @@
 
     function createTab(sessionName = null) {
       const id = 'tab_' + Math.random().toString(36).slice(2, 9);
-      if (!sessionName) {
-        let idx = 0;
-        const used = new Set(Array.from(tabs.values()).map((t) => t.sessionName));
-        while (used.has(`chat${idx}`)) idx++;
-        sessionName = `chat${idx}`;
-      }
 
       const wrap = document.createElement('div');
       wrap.className = 'term-wrap';
@@ -478,7 +478,7 @@
         el.onclick = () => switchTab(tab.id);
 
         const title = document.createElement('span');
-        title.textContent = tab.sessionName;
+        title.textContent = tab.sessionName || '…';
         title.ondblclick = (event) => {
           event.stopPropagation();
           event.preventDefault();
@@ -694,7 +694,7 @@
       if (existing.length > 0) {
         existing.forEach((name) => createTab(name));
       } else {
-        createTab('chat0');
+        createTab();
       }
     })();
   </script>

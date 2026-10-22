@@ -3,8 +3,12 @@ set -euo pipefail
 
 case "${1:-}" in
     --list)
-        SESSIONS="$(tmux list-sessions -F "#{session_name}" 2>/dev/null | tr '\n' ',' | sed 's/,$//' || true)"
-        printf '__TMUX_SESSIONS__:%s\n' "$SESSIONS"
+        if tmux list-sessions -F "#{session_name}" >/dev/null 2>&1; then
+            tmux list-sessions -F "#{session_name}" | while IFS= read -r name; do
+                [ -n "$name" ] || continue
+                printf '__SESSION__:%s\n' "$name"
+            done
+        fi
         exit 0
         ;;
     --kill)
@@ -51,39 +55,56 @@ case "${1:-}" in
                 exit
             }
         ' /core/config.toml 2>/dev/null || true)"
-        awk -v theme="$THEME" '
-            /^\[/ {
-                if (in_ui && !wrote) {
-                    print "theme = \"" theme "\""
-                    wrote = 1
-                }
-                in_ui = ($0 ~ /^\[ui\][[:space:]]*$/)
-                if (in_ui) saw_ui = 1
-            }
-            in_ui && $0 ~ /^[[:space:]]*theme[[:space:]]*=/ {
-                print "theme = \"" theme "\""
-                wrote = 1
-                next
-            }
-            { print }
-            END {
-                if (!saw_ui) {
-                    print ""
-                    print "[ui]"
-                    print "theme = \"" theme "\""
-                } else if (!wrote) {
-                    print "theme = \"" theme "\""
-                }
-            }
-        ' /core/config.toml > /tmp/grok-config.toml
-        mv /tmp/grok-config.toml /core/config.toml
         if [ "$PREV" = "$THEME" ]; then
+            exit 0
+        fi
+        grok_running=0
+        while IFS= read -r session; do
+            [ -n "$session" ] || continue
+            cmd="$(tmux list-panes -t "$session" -F '#{pane_current_command}' 2>/dev/null | head -n 1 || true)"
+            if [ "$cmd" = "grok" ]; then
+                grok_running=1
+                break
+            fi
+        done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
+        if [ "$grok_running" = "0" ]; then
+            touch /core/config.toml.lock
+            (
+                flock 9
+                awk -v theme="$THEME" '
+                    /^\[/ {
+                        if (in_ui && !wrote) {
+                            print "theme = \"" theme "\""
+                            wrote = 1
+                        }
+                        in_ui = ($0 ~ /^\[ui\][[:space:]]*$/)
+                        if (in_ui) saw_ui = 1
+                    }
+                    in_ui && $0 ~ /^[[:space:]]*theme[[:space:]]*=/ {
+                        print "theme = \"" theme "\""
+                        wrote = 1
+                        next
+                    }
+                    { print }
+                    END {
+                        if (!saw_ui) {
+                            print ""
+                            print "[ui]"
+                            print "theme = \"" theme "\""
+                        } else if (!wrote) {
+                            print "theme = \"" theme "\""
+                        }
+                    }
+                ' /core/config.toml > /tmp/grok-config.toml
+                mv /tmp/grok-config.toml /core/config.toml
+            ) 9>/core/config.toml.lock
             exit 0
         fi
         while IFS= read -r session; do
             [ -n "$session" ] || continue
             cmd="$(tmux list-panes -t "$session" -F '#{pane_current_command}' 2>/dev/null | head -n 1 || true)"
             if [ "$cmd" = "grok" ]; then
+                tmux send-keys -t "$session" C-u
                 tmux send-keys -t "$session" "/theme ${THEME}" Enter
             fi
         done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
@@ -133,10 +154,23 @@ case "${1:-}" in
         case "$CMD" in
             zsh|bash|sh)
                 DIR="$(printf '%q' "/projects/${NAME}")"
+                tmux send-keys -t "$SESSION" C-u
                 tmux send-keys -t "$SESSION" "cd ${DIR} && grok" Enter
                 ;;
         esac
         exit 0
+        ;;
+    --new)
+        (
+            flock 9
+            i=0
+            while tmux has-session -t "chat${i}" 2>/dev/null; do
+                i=$((i + 1))
+            done
+            tmux new-session -d -s "chat${i}"
+            flock -u 9
+            exec tmux attach-session -t "chat${i}"
+        ) 9>/tmp/grok-tab-new.lock
         ;;
     --session)
         if [ -n "${2:-}" ]; then

@@ -52,10 +52,22 @@ as_coder mkdir -p \
     /projects
 
 # User skills live on the /skills volume, which Grok scans via $GROK_HOME/skills.
-if [ -L /core/skills ]; then
-    :
-elif [ -d /core/skills ]; then
-    rmdir /core/skills 2>/dev/null || true
+if [ -d /core/skills ] && [ ! -L /core/skills ]; then
+    mkdir -p /skills
+    shopt -s dotglob nullglob
+    for item in /core/skills/*; do
+        base="$(basename "$item")"
+        if [ -e "/skills/${base}" ]; then
+            echo "ERROR: /skills/${base} already exists, and /core/skills/${base} was not moved." >&2
+            exit 1
+        fi
+        mv "$item" "/skills/${base}" || exit 1
+    done
+    shopt -u dotglob nullglob
+    rmdir /core/skills || {
+        echo "ERROR: /core/skills is not empty, so it was not linked to /skills." >&2
+        exit 1
+    }
 fi
 if [ ! -e /core/skills ] && [ ! -L /core/skills ]; then
     ln -s /skills /core/skills
@@ -114,11 +126,15 @@ link_managed() {
             ln -sfn "../downloads/${base}" "$path"
         fi
     elif [ -f "$path" ]; then
-        dest="/core/downloads/${name}-managed-linux-x86_64"
+        case "$(uname -m)" in
+            aarch64|arm64) cpu=aarch64 ;;
+            *) cpu=x86_64 ;;
+        esac
+        dest="/core/downloads/${name}-managed-linux-${cpu}"
         mv -f "$path" "$dest"
         chown 1000:1000 "$dest"
         chmod 755 "$dest"
-        ln -sfn "../downloads/${name}-managed-linux-x86_64" "$path"
+        ln -sfn "../downloads/${name}-managed-linux-${cpu}" "$path"
     else
         return 0
     fi
@@ -126,31 +142,8 @@ link_managed() {
 }
 
 persist_grok_home
-if [ ! -x /core/bin/grok ]; then
-    echo "Downloading Grok Build into /core/bin ..."
-    install_log=/core/grok-install.log
-    : > "$install_log"
-    if curl -fsSL https://x.ai/cli/install.sh -o /tmp/grok-install.sh; then
-        chown 1000:1000 /tmp/grok-install.sh
-        if ! as_coder bash /tmp/grok-install.sh >>"$install_log" 2>&1; then
-            echo "WARNING: grok install failed. See /core/grok-install.log" | tee -a "$install_log" >&2
-        fi
-        rm -f /tmp/grok-install.sh
-    else
-        echo "WARNING: could not download https://x.ai/cli/install.sh" | tee -a "$install_log" >&2
-    fi
-    chown 1000:1000 "$install_log" 2>/dev/null || true
-fi
-link_managed grok
-link_managed agent
-if [ -L /core/bin/grok ] || [ -x /core/bin/grok ]; then
-    ln -sfn /core/bin/grok /usr/local/bin/grok
-fi
-if [ -e /core/bin/agent ]; then
-    ln -sfn /core/bin/agent /usr/local/bin/agent
-fi
 
-cat << 'EOF' > /home/coder/.zshrc
+cat << 'EOF' > /etc/zsh/zshrc
 export GROK_HOME=/core
 export GROK_BIN_DIR=/core/bin
 export MISE_DATA_DIR=/utilities/mise
@@ -173,6 +166,19 @@ else
 fi
 EOF
 
+# Do not replace a file the user or the Grok installer already wrote.
+if [ ! -f /home/coder/.zshrc ]; then
+    printf '%s\n' '# Personal zsh settings. Not replaced on restart.' > /home/coder/.zshrc
+elif grep -q 'Ready. Sign in once with' /home/coder/.zshrc && ! grep -q 'fpath=' /home/coder/.zshrc; then
+    printf '%s\n' '# Personal zsh settings. Not replaced on restart.' > /home/coder/.zshrc
+fi
+if [ -d /core/completions ] && ! grep -q '/core/completions' /home/coder/.zshrc 2>/dev/null; then
+    cat >> /home/coder/.zshrc << 'EOF'
+fpath=(/core/completions $fpath)
+autoload -Uz compinit && compinit
+EOF
+fi
+
 cat << 'EOF' > /home/coder/.tmux.conf
 set -g default-terminal "tmux-256color"
 set -ga terminal-overrides ",*256col*:Tc"
@@ -185,19 +191,10 @@ set -g history-limit 100000
 EOF
 chown 1000:1000 /home/coder/.zshrc /home/coder/.tmux.conf
 
-if [ ! -f /utilities/mise/.bootstrapped ]; then
-    echo "Bootstrapping ripgrep, fd, uv, node into /utilities ..."
-    if as_coder mise use -g ripgrep@latest fd@latest uv@latest node@lts; then
-        as_coder touch /utilities/mise/.bootstrapped
-    else
-        echo "WARNING: mise bootstrap failed. Install tools later with: mise use -g <tool>@latest" >&2
-    fi
-fi
-
 cd /projects
 
 # Seed the mounted UI. Replace an older page once so double-click rename is present.
-if [ ! -f /terminal/index.html ] || ! grep -q 'grok-fonts-v1' /terminal/index.html; then
+if [ ! -f /terminal/index.html ] || ! grep -q 'grok-audit-v1' /terminal/index.html; then
     cp /opt/terminal-defaults/index.html /terminal/index.html
 fi
 # Replace the first theme pack. Later files the user adds are left alone.
@@ -216,15 +213,15 @@ fi
 if [ ! -f /terminal/fonts/.pack ]; then
     cp /opt/terminal-defaults/fonts/* /terminal/fonts/ 2>/dev/null || true
     if [ ! -f "/terminal/fonts/JetBrains Mono.woff2" ]; then
-        curl -fsSL "https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Regular.woff2" -o "/terminal/fonts/JetBrains Mono.woff2" || true
+        curl -fsSL --max-time 60 "https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Regular.woff2" -o "/terminal/fonts/JetBrains Mono.woff2" || true
     fi
     if [ ! -f "/terminal/fonts/Fira Code.woff2" ]; then
-        curl -fsSL "https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/woff2/FiraCode-Regular.woff2" -o "/terminal/fonts/Fira Code.woff2" || true
+        curl -fsSL --max-time 60 "https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/woff2/FiraCode-Regular.woff2" -o "/terminal/fonts/Fira Code.woff2" || true
     fi
     printf 'fonts-1\n' > /terminal/fonts/.pack
 fi
 chmod -R a+rX /terminal
-chown 1000:1000 /terminal /terminal/index.html /terminal/themes /terminal/fonts /terminal/favicon.png
+chown -R 1000:1000 /terminal
 
 # Older volumes were seeded before copy-on-select. Insert the helper once.
 if [ -f /terminal/index.html ] && ! grep -q 'grok-copy-selection' /terminal/index.html; then
@@ -246,7 +243,8 @@ if [ -n "$AUTH_PASSWORD" ]; then
         AUTH_USER=admin
     fi
     htpasswd -bc /etc/nginx/ttyd.htpasswd "$AUTH_USER" "$AUTH_PASSWORD" >/dev/null
-    chmod 644 /etc/nginx/ttyd.htpasswd
+    chown root:www-data /etc/nginx/ttyd.htpasswd
+    chmod 640 /etc/nginx/ttyd.htpasswd
     echo "Web UI basic auth enabled for ${AUTH_USER}."
 else
     sed -i '/auth_basic/d' /etc/nginx/nginx.conf
@@ -254,10 +252,51 @@ else
 fi
 mkdir -p /tmp/nginx-client /tmp/nginx-proxy /tmp/nginx-fastcgi /tmp/nginx-uwsgi /tmp/nginx-scgi
 
-as_coder ttyd -i 127.0.0.1 -p 7682 -I /terminal/index.html -a -W -m 10 /app/tab.sh &
+as_coder ttyd -i 127.0.0.1 -p 7682 -I /terminal/index.html -a -W -m 40 /app/tab.sh &
 ttyd_pid=$!
 nginx -g 'daemon off;' &
 nginx_pid=$!
+
+# Downloads must not keep port 7681 closed. A stall stops at the timeout.
+(
+    install_log=/core/grok-install.log
+    if [ ! -x /core/bin/grok ]; then
+        echo "Downloading Grok Build into /core/bin ..." | tee -a "$install_log"
+        if curl -fsSL --max-time 60 https://x.ai/cli/install.sh -o /tmp/grok-install.sh; then
+            chown 1000:1000 /tmp/grok-install.sh
+            if ! timeout 120 as_coder bash /tmp/grok-install.sh >>"$install_log" 2>&1; then
+                echo "WARNING: grok install failed. See /core/grok-install.log" | tee -a "$install_log" >&2
+            fi
+            rm -f /tmp/grok-install.sh
+        else
+            echo "WARNING: could not download https://x.ai/cli/install.sh" | tee -a "$install_log" >&2
+        fi
+        chown 1000:1000 "$install_log" 2>/dev/null || true
+    fi
+    link_managed grok
+    link_managed agent
+    if [ -L /core/bin/grok ] || [ -x /core/bin/grok ]; then
+        ln -sfn /core/bin/grok /usr/local/bin/grok
+    fi
+    if [ -e /core/bin/agent ]; then
+        ln -sfn /core/bin/agent /usr/local/bin/agent
+    fi
+    if [ -d /core/completions ] && ! grep -q '/core/completions' /home/coder/.zshrc 2>/dev/null; then
+        cat >> /home/coder/.zshrc << 'EOF'
+fpath=(/core/completions $fpath)
+autoload -Uz compinit && compinit
+EOF
+        chown 1000:1000 /home/coder/.zshrc
+    fi
+    if [ ! -f /utilities/mise/.bootstrapped ]; then
+        echo "Bootstrapping ripgrep, fd, uv, node into /utilities ..."
+        if timeout 300 as_coder mise use -g ripgrep@latest fd@latest uv@latest node@lts; then
+            as_coder touch /utilities/mise/.bootstrapped
+        else
+            echo "WARNING: mise bootstrap failed. Install tools later with: mise use -g <tool>@latest" >&2
+        fi
+    fi
+) &
 
 cleanup() {
     if [ -n "${ttyd_pid:-}" ]; then

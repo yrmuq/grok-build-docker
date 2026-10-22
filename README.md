@@ -45,6 +45,8 @@ All stateful data lives outside the container image across 5 dedicated volumes:
 
 ---
 
+The image builds for Linux `x86_64` and `arm64`. 32-bit ARM is not supported. Build it on the machine that will run it. `docker compose build` picks the matching `ttyd` binary.
+
 ## 🚀 Quick Start (Docker Compose)
 
 Create the persistent folders on your host with UID/GID `1000:1000`:
@@ -73,9 +75,9 @@ services:
       - ${LOCATION}/docker/data/grok_build/projects:/projects
       - ${LOCATION}/docker/data/grok_build/terminal:/terminal
     environment:
-      - TZ=${TZ}
-      - USER=${USER}
-      - PASSWORD=${PASSWORD}
+      - TZ=${GROK_TZ:-UTC}
+      - USER=${GROK_USER:-admin}
+      - PASSWORD=${GROK_PASSWORD:-}
     logging:
       driver: json-file
       options:
@@ -88,10 +90,10 @@ services:
 Create a companion `.env` file:
 
 ```dotenv
-TZ=Europe/Tallinn
+GROK_TZ=Europe/Tallinn
 LOCATION=/home/user
-USER=admin
-PASSWORD=supersecretpassword
+GROK_USER=admin
+GROK_PASSWORD=supersecretpassword
 GROK_BUILD=7681
 
 ```
@@ -116,7 +118,7 @@ Edits you make yourself in the mounted `/terminal` folder apply on a browser ref
 
 ## 🔑 Authentication & Usage
 
-1. Open `http://<SERVER_IP>:7681` in your browser. Log in with `USER` and `PASSWORD` from your `.env`. If `PASSWORD` is empty, the page opens with no login.
+1. Open `http://<SERVER_IP>:7681` in your browser. Log in with `GROK_USER` and `GROK_PASSWORD` from your `.env`. If `GROK_PASSWORD` is empty, the page opens with no login. The names are not `USER`, `PASSWORD`, or `TZ`: a Linux shell already sets those, and Compose would ignore the `.env` file.
 2. Authenticate Grok Build using your xAI / X subscription via headless device auth:
 ```bash
 grok login --device-auth
