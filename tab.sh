@@ -13,10 +13,45 @@ case "${1:-}" in
         fi
         exit 0
         ;;
-    --rename)
-        if [ -n "${2:-}" ] && [ -n "${3:-}" ]; then
-            tmux rename-session -t "$2" "$3" 2>/dev/null || true
+    --theme)
+        THEME="${2:-}"
+        if ! printf '%s' "$THEME" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+            exit 0
         fi
+        touch /core/config.toml
+        awk -v theme="$THEME" '
+            /^\[/ {
+                if (in_ui && !wrote) {
+                    print "theme = \"" theme "\""
+                    wrote = 1
+                }
+                in_ui = ($0 ~ /^\[ui\][[:space:]]*$/)
+                if (in_ui) saw_ui = 1
+            }
+            in_ui && $0 ~ /^[[:space:]]*theme[[:space:]]*=/ {
+                print "theme = \"" theme "\""
+                wrote = 1
+                next
+            }
+            { print }
+            END {
+                if (!saw_ui) {
+                    print ""
+                    print "[ui]"
+                    print "theme = \"" theme "\""
+                } else if (!wrote) {
+                    print "theme = \"" theme "\""
+                }
+            }
+        ' /core/config.toml > /tmp/grok-config.toml
+        mv /tmp/grok-config.toml /core/config.toml
+        while IFS= read -r session; do
+            [ -n "$session" ] || continue
+            cmd="$(tmux list-panes -t "$session" -F '#{pane_current_command}' 2>/dev/null | head -n 1 || true)"
+            if [ "$cmd" = "grok" ]; then
+                tmux send-keys -t "$session" "/theme ${THEME}" Enter
+            fi
+        done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
         exit 0
         ;;
     --session)

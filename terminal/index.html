@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-tab-rename-v1 -->
+<!-- grok-theme-sync-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -450,6 +450,7 @@
       currentTheme = e.target.value;
       localStorage.setItem('grok_theme', currentTheme);
       updateAllTerminalSettings();
+      runControlCommand(['--theme', currentTheme]);
     };
 
     document.getElementById('font-select').value = currentFont;
