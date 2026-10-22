@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v8 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -386,16 +386,17 @@
       tab.wrap.remove();
       tabs.delete(id);
 
-      if (activeTabId === id) {
-        const remaining = Array.from(tabs.keys());
-        if (remaining.length > 0) {
-          switchTab(remaining[remaining.length - 1]);
-        } else {
+      const wasActive = activeTabId === id;
+      const remaining = Array.from(tabs.keys());
+      if (wasActive) {
+        if (remaining.length === 0) {
           createTab();
+          return;
         }
-      } else {
-        renderTabsBar();
+        activeTabId = remaining[remaining.length - 1];
       }
+      renderTabsBar();
+      if (wasActive) switchTab(activeTabId);
     }
 
     function beginRename(id, titleEl) {
