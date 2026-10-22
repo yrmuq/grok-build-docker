@@ -10,6 +10,9 @@ for dir in /core /utilities /skills /projects /terminal /home/coder /app; do
     mkdir -p "$dir"
     chown 1000:1000 "$dir"
 done
+# /core itself is fixed above, but mkdir created /core/bin as root.
+chown -R 1000:1000 /core/bin
+chmod 755 /core/bin
 
 as_coder() {
     runuser -u coder --preserve-environment -- env \

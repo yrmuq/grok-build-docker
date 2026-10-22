@@ -1,5 +1,5 @@
-/* grok-copy-selection: keep a visible selection and copy it on mouseup.
-   Right-click is swallowed so tmux/browser menus do not replace the shell menu. */
+/* grok-copy-selection: Ctrl+C copies the selection and does not also interrupt the shell.
+   The browser context menu stays available for Copy and Paste. */
 (function () {
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) {
@@ -29,18 +29,16 @@
         selectionInactiveBackground: theme.selectionBackground
       });
     }
-    const el = term.element;
-    if (!el) return;
-    el.addEventListener('mouseup', function () {
+    term.attachCustomKeyEventHandler(function (event) {
+      if (event.type !== 'keydown') return true;
+      const copy = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey
+        && (event.key === 'c' || event.key === 'C');
+      if (!copy) return true;
       const text = term.getSelection();
-      if (text) copyText(text);
+      if (!text) return true;
+      copyText(text);
       term.focus();
-    });
-    el.addEventListener('contextmenu', function (event) {
-      event.preventDefault();
-      const text = term.getSelection();
-      if (text) copyText(text);
-      term.focus();
+      return false;
     });
   }
 
