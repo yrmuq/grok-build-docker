@@ -260,11 +260,12 @@ nginx_pid=$!
 # Downloads must not keep port 7681 closed. A stall stops at the timeout.
 (
     install_log=/core/grok-install.log
+    export -f as_coder
     if [ ! -x /core/bin/grok ]; then
         echo "Downloading Grok Build into /core/bin ..." | tee -a "$install_log"
         if curl -fsSL --max-time 60 https://x.ai/cli/install.sh -o /tmp/grok-install.sh; then
             chown 1000:1000 /tmp/grok-install.sh
-            if ! timeout 120 as_coder bash /tmp/grok-install.sh >>"$install_log" 2>&1; then
+            if ! timeout 120 bash -c 'as_coder bash /tmp/grok-install.sh' >>"$install_log" 2>&1; then
                 echo "WARNING: grok install failed. See /core/grok-install.log" | tee -a "$install_log" >&2
             fi
             rm -f /tmp/grok-install.sh
@@ -290,7 +291,7 @@ EOF
     fi
     if [ ! -f /utilities/mise/.bootstrapped ]; then
         echo "Bootstrapping ripgrep, fd, uv, node into /utilities ..."
-        if timeout 300 as_coder mise use -g ripgrep@latest fd@latest uv@latest node@lts; then
+        if timeout 300 bash -c 'as_coder mise use -g ripgrep@latest fd@latest uv@latest node@lts'; then
             as_coder touch /utilities/mise/.bootstrapped
         else
             echo "WARNING: mise bootstrap failed. Install tools later with: mise use -g <tool>@latest" >&2
