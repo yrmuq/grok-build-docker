@@ -5,7 +5,7 @@ AUTH_USER="${USER:-}"
 AUTH_PASSWORD="${PASSWORD:-}"
 
 # Bind mounts created by Docker are root-owned. Fix the mount roots only.
-mkdir -p /core/bin /skills /projects /terminal/themes /home/coder
+mkdir -p /core/bin /skills /projects /terminal/themes /terminal/fonts /home/coder
 for dir in /core /utilities /skills /projects /terminal /home/coder /app; do
     mkdir -p "$dir"
     chown 1000:1000 "$dir"
@@ -197,7 +197,7 @@ fi
 cd /projects
 
 # Seed the mounted UI. Replace an older page once so double-click rename is present.
-if [ ! -f /terminal/index.html ] || ! grep -q 'grok-tab-rename-v9' /terminal/index.html; then
+if [ ! -f /terminal/index.html ] || ! grep -q 'grok-fonts-v1' /terminal/index.html; then
     cp /opt/terminal-defaults/index.html /terminal/index.html
 fi
 # Replace the first theme pack. Later files the user adds are left alone.
@@ -213,8 +213,18 @@ if [ ! -f /terminal/.favicon-rev ] || [ "$(cat /terminal/.favicon-rev 2>/dev/nul
     cp /opt/terminal-defaults/favicon.png /terminal/favicon.png
     printf 'v5\n' > /terminal/.favicon-rev
 fi
+if [ ! -f /terminal/fonts/.pack ]; then
+    cp /opt/terminal-defaults/fonts/*.woff2 /terminal/fonts/ 2>/dev/null || true
+    if [ ! -f "/terminal/fonts/JetBrains Mono.woff2" ]; then
+        curl -fsSL "https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Regular.woff2" -o "/terminal/fonts/JetBrains Mono.woff2" || true
+    fi
+    if [ ! -f "/terminal/fonts/Fira Code.woff2" ]; then
+        curl -fsSL "https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/woff2/FiraCode-Regular.woff2" -o "/terminal/fonts/Fira Code.woff2" || true
+    fi
+    printf 'fonts-1\n' > /terminal/fonts/.pack
+fi
 chmod -R a+rX /terminal
-chown 1000:1000 /terminal /terminal/index.html /terminal/themes /terminal/favicon.png
+chown 1000:1000 /terminal /terminal/index.html /terminal/themes /terminal/fonts /terminal/favicon.png
 
 # Older volumes were seeded before copy-on-select. Insert the helper once.
 if [ -f /terminal/index.html ] && ! grep -q 'grok-copy-selection' /terminal/index.html; then
