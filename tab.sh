@@ -89,6 +89,46 @@ case "${1:-}" in
         done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
         exit 0
         ;;
+    --projects)
+        if [ -d /projects ]; then
+            find /projects -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort | while IFS= read -r name; do
+                [ -n "$name" ] || continue
+                printf '__PROJECT__:%s\n' "$name"
+            done
+        fi
+        exit 0
+        ;;
+    --project-mkdir)
+        NAME="${2:-}"
+        case "$NAME" in
+            ""|.|..|*/*) exit 0 ;;
+        esac
+        if printf '%s' "$NAME" | grep -q '[[:cntrl:]]'; then
+            exit 0
+        fi
+        mkdir -p -- "/projects/${NAME}"
+        exit 0
+        ;;
+    --project-go)
+        SESSION="${2:-}"
+        NAME="${3:-}"
+        case "$NAME" in
+            ""|.|..|*/*) exit 0 ;;
+        esac
+        if printf '%s' "$NAME" | grep -q '[[:cntrl:]]'; then
+            exit 0
+        fi
+        [ -d "/projects/${NAME}" ] || exit 0
+        [ -n "$SESSION" ] || exit 0
+        CMD="$(tmux list-panes -t "$SESSION" -F '#{pane_current_command}' 2>/dev/null | head -n 1 || true)"
+        case "$CMD" in
+            zsh|bash|sh)
+                DIR="$(printf '%q' "/projects/${NAME}")"
+                tmux send-keys -t "$SESSION" "cd ${DIR} && grok" Enter
+                ;;
+        esac
+        exit 0
+        ;;
     --session)
         if [ -n "${2:-}" ]; then
             exec tmux new-session -A -s "$2"

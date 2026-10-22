@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v4 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v5 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -73,7 +73,22 @@
     .step-btn { min-width: 36px; width: auto; padding: 0 6px; font-weight: bold; }
     .step-btn:hover, select:hover { border-color: var(--accent); }
     #font-size-label { min-width: 32px; text-align: center; }
-    #terminals { position: relative; flex: 1; width: 100%; height: calc(100% - 40px); }
+    #project-dialog {
+      position: fixed; inset: 0; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, 0.45); z-index: 5;
+    }
+    #project-dialog.open { display: flex; }
+    #project-dialog form {
+      display: flex; flex-direction: column; gap: 8px;
+      min-width: 280px; padding: 16px; border-radius: 8px;
+      background: var(--bar-bg); color: var(--bar-fg);
+      border: 1px solid var(--border);
+    }
+    #project-dialog input {
+      height: 32px; padding: 0 8px; border-radius: 5px;
+      border: 1px solid var(--border); background: var(--tab-bg); color: var(--bar-fg);
+    }
     .term-wrap { position: absolute; inset: 0; padding: 4px; display: none; }
     .term-wrap.active { display: block; }
   </style>
@@ -86,6 +101,10 @@
         <button id="add-tab-btn" title="New Tab">+</button>
       </div>
       <div id="controls">
+        <select id="project-select" title="Project">
+          <option value="">Projects</option>
+          <option value="+">+</option>
+        </select>
         <select id="theme-select" title="Theme"></select>
         <select id="font-select" title="Font Family">
           <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
@@ -98,6 +117,11 @@
       </div>
     </div>
     <div id="terminals"></div>
+  </div>
+  <div id="project-dialog">
+    <form id="project-form">
+      <input id="project-name" type="text" placeholder="Project name" autocomplete="off" />
+    </form>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
@@ -503,7 +527,84 @@
         themePollBusy = false;
       }
     }
+    async function loadProjects() {
+      const select = document.getElementById('project-select');
+      if (document.activeElement === select) return;
+      const out = await runControlCommand(['--projects']);
+      const names = [];
+      out.split('\n').forEach((line) => {
+        const match = line.match(/__PROJECT__:(.*)/);
+        if (match && match[1].trim()) names.push(match[1].trim());
+      });
+      const previous = select.value;
+      select.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Projects';
+      select.appendChild(placeholder);
+      const plus = document.createElement('option');
+      plus.value = '+';
+      plus.textContent = '+';
+      select.appendChild(plus);
+      names.forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+      if ([...select.options].some((opt) => opt.value === previous && previous !== '+')) {
+        select.value = previous;
+      }
+    }
+
+    function openProjectDialog() {
+      const dialog = document.getElementById('project-dialog');
+      const input = document.getElementById('project-name');
+      dialog.classList.add('open');
+      input.value = '';
+      input.focus();
+    }
+
+    function closeProjectDialog() {
+      document.getElementById('project-dialog').classList.remove('open');
+    }
+
+    async function openProject(name) {
+      const tab = tabs.get(activeTabId);
+      if (!tab || !name) return;
+      await runControlCommand(['--project-go', tab.sessionName, name]);
+    }
     document.getElementById('add-tab-btn').onclick = () => createTab();
+    document.getElementById('project-select').onchange = async (event) => {
+      const select = event.target;
+      const value = select.value;
+      if (value === '+') {
+        select.value = '';
+        openProjectDialog();
+        return;
+      }
+      if (!value) return;
+      await openProject(value);
+    };
+    document.getElementById('project-form').onsubmit = async (event) => {
+      event.preventDefault();
+      const name = document.getElementById('project-name').value.trim();
+      closeProjectDialog();
+      if (!name || name === '.' || name === '..' || name.includes('/') || name.includes('\\')) return;
+      await runControlCommand(['--project-mkdir', name]);
+      await loadProjects();
+      document.getElementById('project-select').value = name;
+      await openProject(name);
+    };
+    document.getElementById('project-name').onkeydown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeProjectDialog();
+      }
+    };
+    document.getElementById('project-dialog').onmousedown = (event) => {
+      if (event.target.id === 'project-dialog') closeProjectDialog();
+    };
     document.getElementById('theme-select').onchange = (e) => {
       if (applyingRemoteTheme) return;
       currentTheme = e.target.value;
@@ -553,6 +654,8 @@
       updateAllTerminalSettings();
       pollGrokTheme();
       setInterval(pollGrokTheme, 2000);
+      loadProjects();
+      setInterval(loadProjects, 5000);
       const existing = await listExistingSessions();
       if (existing.length > 0) {
         existing.forEach((name) => createTab(name));
