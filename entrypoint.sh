@@ -214,7 +214,7 @@ if [ ! -f /terminal/.favicon-rev ] || [ "$(cat /terminal/.favicon-rev 2>/dev/nul
     printf 'v5\n' > /terminal/.favicon-rev
 fi
 if [ ! -f /terminal/fonts/.pack ]; then
-    cp /opt/terminal-defaults/fonts/*.woff2 /terminal/fonts/ 2>/dev/null || true
+    cp /opt/terminal-defaults/fonts/* /terminal/fonts/ 2>/dev/null || true
     if [ ! -f "/terminal/fonts/JetBrains Mono.woff2" ]; then
         curl -fsSL "https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Regular.woff2" -o "/terminal/fonts/JetBrains Mono.woff2" || true
     fi

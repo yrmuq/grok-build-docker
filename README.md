@@ -162,8 +162,8 @@ This project integrates with or fetches the following third-party open-source an
 | **tmux** | Terminal multiplexer for persistent sessions | ISC License | https://github.com/tmux/tmux |
 | **mise (`mise-en-place`)** | Polyglot runtime and CLI tool manager | MIT License | https://github.com/jdx/mise |
 | **Starship** | Cross-shell terminal prompt | ISC License | https://github.com/starship/starship |
-| **JetBrains Mono** | Webfont loaded via CDN | SIL Open Font License 1.1 | https://github.com/JetBrains/JetBrainsMono |
-| **Fira Code** | Webfont loaded via CDN | SIL Open Font License 1.1 | https://github.com/tonsky/FiraCode |
+| **JetBrains Mono** | Font file in the image, copied to `/terminal/fonts/` | SIL Open Font License 1.1 | https://github.com/JetBrains/JetBrainsMono |
+| **Fira Code** | Font file in the image, copied to `/terminal/fonts/` | SIL Open Font License 1.1 | https://github.com/tonsky/FiraCode |
 | **GrokNight / GrokDay** | Terminal palettes in `/terminal/themes/` | Apache-2.0 | https://github.com/xai-org/grok-build |
 | **Tokyo Night** | Terminal palette | MIT License | https://github.com/enkia/tokyo-night-vscode-theme |
 | **Rosé Pine Moon** | Terminal palette | MIT License | https://github.com/rose-pine/rose-pine-theme |
