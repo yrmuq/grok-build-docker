@@ -25,7 +25,7 @@ case "${1:-}" in
             in_ui && $0 ~ /^[[:space:]]*theme[[:space:]]*=/ {
                 line = $0
                 sub(/^[^=]*=[[:space:]]*/, "", line)
-                gsub(/["'\'']/, "", line)
+                gsub(/["'\''"]/, "", line)
                 gsub(/[[:space:]]/, "", line)
                 print line
                 exit
@@ -45,7 +45,7 @@ case "${1:-}" in
             in_ui && $0 ~ /^[[:space:]]*theme[[:space:]]*=/ {
                 line = $0
                 sub(/^[^=]*=[[:space:]]*/, "", line)
-                gsub(/["'\'']/, "", line)
+                gsub(/["'\''"]/, "", line)
                 gsub(/[[:space:]]/, "", line)
                 print line
                 exit
@@ -87,6 +87,15 @@ case "${1:-}" in
                 tmux send-keys -t "$session" "/theme ${THEME}" Enter
             fi
         done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
+        exit 0
+        ;;
+    --fonts)
+        if [ -d /terminal/fonts ]; then
+            find /terminal/fonts -maxdepth 1 -type f \( -iname '*.woff2' -o -iname '*.woff' -o -iname '*.ttf' -o -iname '*.otf' \) -printf '%f\n' 2>/dev/null | sort | while IFS= read -r name; do
+                [ -n "$name" ] || continue
+                printf '__FONT__:%s\n' "$name"
+            done
+        fi
         exit 0
         ;;
     --projects)
