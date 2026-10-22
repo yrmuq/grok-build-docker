@@ -89,12 +89,21 @@ GROK_BUILD=7681
 
 ```
 
-Start the container:
+Start the container the first time (Compose builds the image because it is not on the machine yet):
 
 ```bash
 docker compose up -d
 
 ```
+
+After this repository changes, the old image is still named `grok_build:latest`. Rebuild it, then start:
+
+```bash
+docker compose up -d --build
+
+```
+
+Edits you make yourself in the mounted `/terminal` folder apply on a browser refresh. Those do not need `--build`.
 
 ---
 
