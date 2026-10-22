@@ -78,34 +78,61 @@ EOF
     chown 1000:1000 /core/AGENTS.md
 fi
 
-materialize_bin() {
-    local name="$1"
-    local path="/core/bin/${name}"
-    if [ -L "$path" ]; then
-        local real
-        real="$(readlink -f "$path" || true)"
-        if [ -n "$real" ] && [ -f "$real" ]; then
-            cp -f "$real" "${path}.real"
-            chmod 755 "${path}.real"
-            mv -f "${path}.real" "$path"
-            chown 1000:1000 "$path"
+# The updater only swaps a symlink. A regular file at /core/bin/grok makes
+# `grok update` fail with "reading prior symlink target ... Invalid argument".
+# The installer stores the blob in ~/.grok/downloads and ignores GROK_HOME,
+# so ~/.grok points at the /core volume and the link stays relative.
+persist_grok_home() {
+    mkdir -p /core/downloads /core/bin
+    if [ -d /home/coder/.grok ] && [ ! -L /home/coder/.grok ]; then
+        if [ -d /home/coder/.grok/downloads ]; then
+            cp -a /home/coder/.grok/downloads/. /core/downloads/ || true
         fi
+        rm -rf /home/coder/.grok
     fi
+    if [ ! -L /home/coder/.grok ]; then
+        ln -sfn /core /home/coder/.grok
+    fi
+    chown -h 1000:1000 /home/coder/.grok 2>/dev/null || true
+    chown 1000:1000 /core/downloads /core/bin
 }
 
-# The upstream installer ignores GROK_HOME. It honors GROK_BIN_DIR and stores
-# the blob under ~/.grok/downloads. Copy a regular file into /core/bin so the
-# binary survives a new container without that ephemeral home.
-if [ ! -x /core/bin/grok ] || [ -L /core/bin/grok ]; then
+link_managed() {
+    local name="$1"
+    local path="/core/bin/${name}"
+    local target base dest
+    mkdir -p /core/downloads
+    if [ -L "$path" ]; then
+        target="$(readlink -f "$path" || true)"
+        if [ -n "$target" ] && [ -f "$target" ]; then
+            base="$(basename "$target")"
+            if [ "$target" != "/core/downloads/${base}" ]; then
+                cp -f "$target" "/core/downloads/${base}"
+                chown 1000:1000 "/core/downloads/${base}"
+                chmod 755 "/core/downloads/${base}"
+            fi
+            ln -sfn "../downloads/${base}" "$path"
+        fi
+    elif [ -f "$path" ]; then
+        dest="/core/downloads/${name}-managed-linux-x86_64"
+        mv -f "$path" "$dest"
+        chown 1000:1000 "$dest"
+        chmod 755 "$dest"
+        ln -sfn "../downloads/${name}-managed-linux-x86_64" "$path"
+    else
+        return 0
+    fi
+    chown -h 1000:1000 "$path" 2>/dev/null || true
+}
+
+persist_grok_home
+if [ ! -x /core/bin/grok ]; then
     echo "Downloading Grok Build into /core/bin ..."
     install_log=/core/grok-install.log
     : > "$install_log"
     if curl -fsSL https://x.ai/cli/install.sh -o /tmp/grok-install.sh; then
         chown 1000:1000 /tmp/grok-install.sh
-        if as_coder bash /tmp/grok-install.sh >>"$install_log" 2>&1; then
-            materialize_bin grok
-            materialize_bin agent
-        else
+        if ! as_coder bash /tmp/grok-install.sh >>"$install_log" 2>&1; then
             echo "WARNING: grok install failed. See /core/grok-install.log" | tee -a "$install_log" >&2
         fi
         rm -f /tmp/grok-install.sh
@@ -114,11 +141,13 @@ if [ ! -x /core/bin/grok ] || [ -L /core/bin/grok ]; then
     fi
     chown 1000:1000 "$install_log" 2>/dev/null || true
 fi
-if [ -x /core/bin/grok ] && [ ! -L /core/bin/grok ]; then
+link_managed grok
+link_managed agent
+if [ -L /core/bin/grok ] || [ -x /core/bin/grok ]; then
     ln -sfn /core/bin/grok /usr/local/bin/grok
-    if [ -e /core/bin/agent ]; then
-        ln -sfn /core/bin/agent /usr/local/bin/agent
-    fi
+fi
+if [ -e /core/bin/agent ]; then
+    ln -sfn /core/bin/agent /usr/local/bin/agent
 fi
 
 cat << 'EOF' > /home/coder/.zshrc
