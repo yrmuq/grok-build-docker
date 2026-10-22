@@ -24,7 +24,7 @@
   * **Persistent Sessions:** Closing the browser tab detaches seamlessly; reopening restores all active `tmux` sessions (`chat0`, `chat1`, etc.) as browser tabs.
   * **Tab Management:** Click `[+]` to spawn a new session, click to switch, double-click the name to rename, click `[×]` to terminate, or click the `Reconnect` badge if a socket drops.
   * **Projects:** The menu to the left of the themes lists folders in `/projects`. `+` asks for a name, creates that folder, then runs `cd` and `grok` when the active tab is at the shell prompt.
-  * **Live Theme & Font Switcher:** **GrokNight**, **GrokDay**, **Tokyo Night**, **Rose Pine Moon**, and **Oscura Midnight**. These are the same names Grok uses for `/theme`. Changing the menu updates the running Grok session, and `/theme` inside Grok updates the menu within a couple of seconds. Font family (**JetBrains Mono**, **Fira Code**, **System Monospace**) and font size stay in `localStorage`. Theme files live in `/terminal/themes/` and can be edited without rebuilding the image.
+  * **Live Theme & Font Switcher:** **GrokNight**, **GrokDay**, **Tokyo Night**, **Rose Pine Moon**, and **Oscura Midnight**. These are the same names Grok uses for `/theme`. Changing the menu updates the running Grok session, and `/theme` inside Grok updates the menu within a couple of seconds. Font files in `/terminal/fonts/` (`woff2`, `woff`, `ttf`, `otf`) appear in the font menu. The label is the file name without the extension. **System Monospace** stays in the list and is not a file. Font size stays in `localStorage`. Theme files live in `/terminal/themes/`. Edits to both folders apply on refresh, without rebuilding the image.
 * **Sandboxed Package Management via `mise`:**
   * Runs as a non-root user (`coder`, `UID:GID 1000:1000`) with `sudo`, `apt`, and `apt-get` strictly blocked at runtime.
   * An `apt` wrapper redirects the AI agent to install all programming languages, compilers, and CLI tools directly into the persistent `/utilities` volume using **`mise`**.
@@ -41,7 +41,7 @@ All stateful data lives outside the container image across 5 dedicated volumes:
 | `/utilities` | Persistent storage for all runtimes and tools installed via `mise`, `cargo`, `rustup`, `uv`, and `npm`. Survives container rebuilds. |
 | `/skills` | Custom Grok Build skills (`/skills/<skill_name>/SKILL.md`), automatically linked to `/core/skills`. |
 | `/projects` | Default `WORKDIR` for your Git repositories and coding projects. |
-| `/terminal` | The web UI (`index.html`) and theme JSON files. Edits apply on refresh. |
+| `/terminal` | The web UI (`index.html`), theme JSON files, and `/terminal/fonts`. Edits apply on refresh. |
 
 ---
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v9 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -8,20 +8,6 @@
   <link rel="icon" href="/favicon.png" type="image/png" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" />
   <style>
-    @font-face {
-      font-family: 'JetBrains Mono';
-      src: url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Regular.woff2') format('woff2');
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: 'Fira Code';
-      src: url('https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/woff2/FiraCode-Regular.woff2') format('woff2');
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
     :root {
       --bar-bg: #181825;
       --bar-fg: #cdd6f4;
@@ -108,11 +94,7 @@
           <option value="+">+</option>
         </select>
         <select id="theme-select" title="Theme"></select>
-        <select id="font-select" title="Font Family">
-          <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
-          <option value="'Fira Code', monospace">Fira Code</option>
-          <option value="monospace">System Monospace</option>
-        </select>
+        <select id="font-select" title="Font Family"></select>
         <button class="step-btn" id="font-dec" title="Decrease Font Size">[-]</button>
         <span id="font-size-label">15px</span>
         <button class="step-btn" id="font-inc" title="Increase Font Size">[+]</button>
@@ -230,6 +212,48 @@
       THEMES = themes;
       if (!THEMES[currentTheme]) currentTheme = Object.keys(THEMES)[0] || '';
       if (currentTheme) select.value = currentTheme;
+    }
+
+    async function loadFonts() {
+      const out = await runControlCommand(['--fonts']);
+      const files = [];
+      out.split('\n').forEach((line) => {
+        const match = line.match(/__FONT__:(.*)/);
+        if (match && match[1].trim()) files.push(match[1].trim());
+      });
+      const formats = { woff2: 'woff2', woff: 'woff', ttf: 'truetype', otf: 'opentype' };
+      const rules = [];
+      const options = [];
+      files.forEach((file) => {
+        const ext = (file.split('.').pop() || '').toLowerCase();
+        const format = formats[ext];
+        if (!format) return;
+        const family = file.replace(/\.(woff2|woff|ttf|otf)$/i, '');
+        rules.push(
+          `@font-face{font-family:${JSON.stringify(family)};src:url('/fonts/${encodeURIComponent(file)}') format('${format}');font-weight:400;font-style:normal;font-display:swap;}`
+        );
+        options.push({ value: `'${family}', monospace`, label: family });
+      });
+      options.push({ value: 'monospace', label: 'System Monospace' });
+      let style = document.getElementById('font-faces');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'font-faces';
+        document.head.appendChild(style);
+      }
+      style.textContent = rules.join('\n');
+      const select = document.getElementById('font-select');
+      select.innerHTML = '';
+      options.forEach((item) => {
+        const opt = document.createElement('option');
+        opt.value = item.value;
+        opt.textContent = item.label;
+        select.appendChild(opt);
+      });
+      if (!options.some((item) => item.value === currentFont)) {
+        currentFont = options[0] ? options[0].value : 'monospace';
+      }
+      select.value = currentFont;
     }
 
     function applyChromeTheme(t) {
@@ -619,7 +643,6 @@
       runControlCommand(['--theme', currentTheme]);
     };
 
-    document.getElementById('font-select').value = currentFont;
     document.getElementById('font-select').onchange = (e) => {
       currentFont = e.target.value;
       localStorage.setItem('grok_font', currentFont);
@@ -656,6 +679,11 @@
       } catch (err) {
         document.body.textContent = 'Failed to load /terminal/themes. Check themes/manifest.json.';
         return;
+      }
+      try {
+        await loadFonts();
+      } catch (err) {
+        currentFont = 'monospace';
       }
       updateAllTerminalSettings();
       pollGrokTheme();
