@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="Grok Build Docker" width="96">
+</p>
+
 # Grok Build Docker (Unofficial)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)

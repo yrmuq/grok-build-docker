@@ -209,8 +209,9 @@ if [ ! -f /terminal/themes/.pack ] || [ "$(cat /terminal/themes/.pack 2>/dev/nul
     cp /opt/terminal-defaults/themes/NOTICE /terminal/themes/NOTICE
     printf 'grok-open-1\n' > /terminal/themes/.pack
 fi
-if [ ! -f /terminal/favicon.png ]; then
+if [ ! -f /terminal/.favicon-rev ] || [ "$(cat /terminal/.favicon-rev 2>/dev/null)" != v2 ]; then
     cp /opt/terminal-defaults/favicon.png /terminal/favicon.png
+    printf 'v2\n' > /terminal/.favicon-rev
 fi
 chmod -R a+rX /terminal
 chown 1000:1000 /terminal /terminal/index.html /terminal/themes /terminal/favicon.png
