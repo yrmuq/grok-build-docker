@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v2 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -330,7 +330,7 @@
           setTimeout(() => {
             t.fitAddon.fit();
             sendResize(t);
-            t.term.focus();
+            if (!document.querySelector('.tab-rename')) t.term.focus();
           }, 10);
         }
       });
@@ -380,6 +380,8 @@
       input.focus();
       input.select();
       let done = false;
+      let armed = false;
+      setTimeout(() => { armed = true; }, 300);
       const finish = async (save) => {
         if (done) return;
         done = true;
@@ -402,7 +404,14 @@
       };
       input.onclick = (event) => event.stopPropagation();
       input.ondblclick = (event) => event.stopPropagation();
-      input.onblur = () => finish(true);
+      input.onmousedown = (event) => event.stopPropagation();
+      input.onblur = () => {
+        if (!armed) {
+          input.focus();
+          return;
+        }
+        finish(true);
+      };
     }
 
     function renderTabsBar() {
