@@ -197,7 +197,7 @@ fi
 cd /projects
 
 # Seed the mounted UI. Replace an older page once so double-click rename is present.
-if [ ! -f /terminal/index.html ] || ! grep -q 'grok-tab-rename-v3' /terminal/index.html; then
+if [ ! -f /terminal/index.html ] || ! grep -q 'grok-tab-rename-v4' /terminal/index.html; then
     cp /opt/terminal-defaults/index.html /terminal/index.html
 fi
 # Replace the first theme pack. Later files the user adds are left alone.
@@ -209,8 +209,11 @@ if [ ! -f /terminal/themes/.pack ] || [ "$(cat /terminal/themes/.pack 2>/dev/nul
     cp /opt/terminal-defaults/themes/NOTICE /terminal/themes/NOTICE
     printf 'grok-open-1\n' > /terminal/themes/.pack
 fi
+if [ ! -f /terminal/favicon.png ]; then
+    cp /opt/terminal-defaults/favicon.png /terminal/favicon.png
+fi
 chmod -R a+rX /terminal
-chown 1000:1000 /terminal /terminal/index.html /terminal/themes
+chown 1000:1000 /terminal /terminal/index.html /terminal/themes /terminal/favicon.png
 
 # Older volumes were seeded before copy-on-select. Insert the helper once.
 if [ -f /terminal/index.html ] && ! grep -q 'grok-copy-selection' /terminal/index.html; then
