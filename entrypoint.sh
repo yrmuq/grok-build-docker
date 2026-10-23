@@ -184,6 +184,9 @@ set -g default-terminal "tmux-256color"
 set -ga terminal-overrides ",*256col*:Tc"
 set -g default-shell /usr/bin/zsh
 set -g mouse off
+set -g set-clipboard on
+set -g allow-passthrough on
+set -as terminal-features ",*:clipboard"
 set -g status off
 set -g set-titles on
 set -g set-titles-string "#S"

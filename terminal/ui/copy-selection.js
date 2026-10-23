@@ -1,5 +1,6 @@
-/* grok-copy-selection: Ctrl+C copies the selection and does not also interrupt the shell.
-   The browser context menu stays available for Copy and Paste. */
+/* grok-copy-selection: a drag selects text in the browser, even while Grok
+   has mouse reporting on. Mouseup copies that text. A plain click still goes
+   to Grok. Ctrl+C copies and does not also interrupt the shell. */
 (function () {
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) {
@@ -18,6 +19,68 @@
     area.select();
     try { document.execCommand('copy'); } catch (err) {}
     area.remove();
+  }
+
+  const replayed = new WeakSet();
+
+  function mouseInit(type, x, y, shift) {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      button: 0,
+      buttons: type === 'mousedown' ? 1 : 0,
+      clientX: x,
+      clientY: y,
+      shiftKey: shift
+    });
+    replayed.add(event);
+    return event;
+  }
+
+  function attachMouseCopy(term) {
+    const root = term.element;
+    if (!root || root.__grokMouseCopy) return;
+    const screen = root.querySelector('.xterm-screen');
+    if (!screen) return;
+    root.__grokMouseCopy = true;
+
+    screen.addEventListener('mousedown', function (event) {
+      if (replayed.has(event)) return;
+      if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
+      event.stopImmediatePropagation();
+      event.preventDefault();
+
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let drag = event.detail >= 2;
+      if (drag) screen.dispatchEvent(mouseInit('mousedown', startX, startY, true));
+
+      function move(ev) {
+        if (drag) return;
+        if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 4) return;
+        drag = true;
+        screen.dispatchEvent(mouseInit('mousedown', startX, startY, true));
+      }
+
+      function up() {
+        document.removeEventListener('mousemove', move, true);
+        document.removeEventListener('mouseup', up, false);
+        if (!drag) {
+          screen.dispatchEvent(mouseInit('mousedown', startX, startY, false));
+          screen.dispatchEvent(mouseInit('mouseup', startX, startY, false));
+          return;
+        }
+        const text = term.getSelection();
+        if (text) {
+          copyText(text);
+          term.focus();
+        }
+      }
+
+      document.addEventListener('mousemove', move, true);
+      document.addEventListener('mouseup', up, false);
+    }, true);
   }
 
   function hook(term) {
@@ -40,6 +103,19 @@
       term.focus();
       return false;
     });
+    if (term.parser && term.parser.registerOscHandler) {
+      term.parser.registerOscHandler(52, function (data) {
+        const parts = String(data).split(';');
+        if (parts.length < 2 || parts[1] === '?') return false;
+        try {
+          const bytes = Uint8Array.from(atob(parts[1]), function (ch) { return ch.charCodeAt(0); });
+          const text = new TextDecoder().decode(bytes);
+          if (text) copyText(text);
+        } catch (err) {}
+        return true;
+      });
+    }
+    attachMouseCopy(term);
   }
 
   function install() {
