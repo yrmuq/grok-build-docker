@@ -46,6 +46,14 @@
     if (!screen) return;
     root.__grokMouseCopy = true;
 
+    // A buttonless move is reported to Grok. xterm treats that report as typing
+    // and clears the highlight, so the selection vanished on mouseup.
+    root.addEventListener('mousemove', function (event) {
+      if (event.buttons) return;
+      if (!term.hasSelection()) return;
+      event.stopImmediatePropagation();
+    }, true);
+
     screen.addEventListener('mousedown', function (event) {
       if (replayed.has(event)) return;
       if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
