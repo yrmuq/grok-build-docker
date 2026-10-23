@@ -130,13 +130,16 @@
       });
     }
     term.attachCustomKeyEventHandler(function (event) {
-      if (event.type !== 'keydown') return true;
       const plain = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
-      if (plain && (event.key === 'v' || event.key === 'V')) {
-        // Leave the key for the browser paste event. Sending it to Grok makes
-        // Grok read the container clipboard, which does not exist.
+      const pasteKey = event.key === 'v' || event.key === 'V' || event.code === 'KeyV'
+        || event.charCode === 22 || event.which === 22;
+      if (plain && pasteKey) {
+        // keydown and keypress both reach here. Returning false skips xterm's
+        // own handling, which would send Ctrl+V to Grok. The browser paste
+        // event still runs and inserts the clipboard text.
         return false;
       }
+      if (event.type !== 'keydown') return true;
       if (!plain || (event.key !== 'c' && event.key !== 'C')) return true;
       const text = term.getSelection();
       if (!text) return true;
