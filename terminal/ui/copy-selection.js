@@ -139,13 +139,16 @@
         // event still runs and inserts the clipboard text.
         return false;
       }
-      if (event.type !== 'keydown') return true;
-      if (!plain || (event.key !== 'c' && event.key !== 'C')) return true;
-      const text = term.getSelection();
-      if (!text) return true;
-      copyText(text);
-      term.focus();
-      return false;
+      const copyKey = event.key === 'c' || event.key === 'C' || event.code === 'KeyC'
+        || event.charCode === 3 || event.which === 3;
+      if (plain && copyKey && term.hasSelection()) {
+        if (event.type === 'keydown') {
+          copyText(term.getSelection());
+          term.focus();
+        }
+        return false;
+      }
+      return true;
     });
     if (term.parser && term.parser.registerOscHandler) {
       term.parser.registerOscHandler(52, function (data) {
