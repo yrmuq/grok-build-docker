@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-projects-v1 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-tab-plus-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -342,11 +342,24 @@
       };
     }
 
-    async function createTab(sessionName = null) {
+    let tabCreateQueue = Promise.resolve();
+
+    function createTab(sessionName = null) {
+      const run = tabCreateQueue.then(() => createTabNow(sessionName));
+      tabCreateQueue = run.then(() => {}, () => {});
+      return run;
+    }
+
+    async function createTabNow(sessionName = null) {
       if (!sessionName) {
-        const out = await runControlCommand(['--alloc']);
-        const match = out.match(/__SESSION__:(.*)/);
-        sessionName = match && match[1].trim() ? match[1].trim() : null;
+        const existing = await listExistingSessions();
+        const used = new Set(existing);
+        tabs.forEach((tab) => {
+          if (tab.sessionName) used.add(tab.sessionName);
+        });
+        let i = 0;
+        while (used.has(`chat${i}`)) i += 1;
+        sessionName = `chat${i}`;
       }
       const id = 'tab_' + Math.random().toString(36).slice(2, 9);
 

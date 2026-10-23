@@ -161,18 +161,6 @@ case "${1:-}" in
         esac
         exit 0
         ;;
-    --alloc)
-        (
-            flock 9
-            i=0
-            while tmux has-session -t "chat${i}" 2>/dev/null; do
-                i=$((i + 1))
-            done
-            tmux new-session -d -s "chat${i}"
-            printf '__SESSION__:chat%s\n' "$i"
-        ) 9>/tmp/grok-tab-new.lock
-        exit 0
-        ;;
     --new)
         (
             flock 9
@@ -182,6 +170,7 @@ case "${1:-}" in
             done
             tmux new-session -d -s "chat${i}"
             flock -u 9
+            exec 9>&-
             exec tmux attach-session -t "chat${i}"
         ) 9>/tmp/grok-tab-new.lock
         ;;
