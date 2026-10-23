@@ -35,15 +35,15 @@
     }
     banner.style.cssText = [
       'position:fixed',
-      'left:12px',
-      'bottom:12px',
+      'right:16px',
+      'bottom:16px',
       'z-index:40',
-      'padding:6px 10px',
-      'border-radius:6px',
+      'padding:12px 20px',
+      'border-radius:8px',
       'border:1px solid ' + foreground,
       'background:' + background,
       'color:' + foreground,
-      'font:13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace',
+      'font:26px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace',
       'pointer-events:none',
       'opacity:1',
       'transition:opacity .25s linear'
@@ -51,7 +51,7 @@
     clearTimeout(bannerTimer);
     bannerTimer = setTimeout(function () {
       if (banner) banner.style.opacity = '0';
-    }, 900);
+    }, 2000);
   }
 
   const replayed = new WeakSet();
