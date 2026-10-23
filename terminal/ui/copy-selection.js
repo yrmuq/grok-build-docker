@@ -131,9 +131,13 @@
     }
     term.attachCustomKeyEventHandler(function (event) {
       if (event.type !== 'keydown') return true;
-      const copy = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey
-        && (event.key === 'c' || event.key === 'C');
-      if (!copy) return true;
+      const plain = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
+      if (plain && (event.key === 'v' || event.key === 'V')) {
+        // Leave the key for the browser paste event. Sending it to Grok makes
+        // Grok read the container clipboard, which does not exist.
+        return false;
+      }
+      if (!plain || (event.key !== 'c' && event.key !== 'C')) return true;
       const text = term.getSelection();
       if (!text) return true;
       copyText(text);
