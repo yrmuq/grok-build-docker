@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-tab-title-v1 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-tab-title-v2 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -342,7 +342,12 @@
       };
     }
 
-    function createTab(sessionName = null) {
+    async function createTab(sessionName = null) {
+      if (!sessionName) {
+        const out = await runControlCommand(['--alloc']);
+        const match = out.match(/__SESSION__:(.*)/);
+        sessionName = match && match[1].trim() ? match[1].trim() : null;
+      }
       const id = 'tab_' + Math.random().toString(36).slice(2, 9);
 
       const wrap = document.createElement('div');
