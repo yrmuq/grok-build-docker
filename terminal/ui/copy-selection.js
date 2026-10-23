@@ -23,7 +23,7 @@
 
   const replayed = new WeakSet();
 
-  function mouseInit(type, x, y, shift) {
+  function mouseInit(type, x, y, shift, detail) {
     const event = new MouseEvent(type, {
       bubbles: true,
       cancelable: true,
@@ -32,7 +32,8 @@
       buttons: type === 'mousedown' ? 1 : 0,
       clientX: x,
       clientY: y,
-      shiftKey: shift
+      shiftKey: !!shift,
+      detail: detail || 1
     });
     replayed.add(event);
     return event;
@@ -53,22 +54,23 @@
 
       const startX = event.clientX;
       const startY = event.clientY;
-      let drag = event.detail >= 2;
-      if (drag) screen.dispatchEvent(mouseInit('mousedown', startX, startY, true));
+      const word = event.detail >= 2;
+      let drag = word;
+      if (word) root.dispatchEvent(mouseInit('mousedown', startX, startY, true, event.detail));
 
       function move(ev) {
         if (drag) return;
         if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 4) return;
         drag = true;
-        screen.dispatchEvent(mouseInit('mousedown', startX, startY, true));
+        root.dispatchEvent(mouseInit('mousedown', startX, startY, true, 1));
       }
 
       function up() {
         document.removeEventListener('mousemove', move, true);
         document.removeEventListener('mouseup', up, false);
         if (!drag) {
-          screen.dispatchEvent(mouseInit('mousedown', startX, startY, false));
-          screen.dispatchEvent(mouseInit('mouseup', startX, startY, false));
+          root.dispatchEvent(mouseInit('mousedown', startX, startY, false, 1));
+          root.dispatchEvent(mouseInit('mouseup', startX, startY, false, 1));
           return;
         }
         const text = term.getSelection();
