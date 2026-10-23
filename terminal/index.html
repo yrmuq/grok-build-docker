@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-audit-v1 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-tab-title-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -322,9 +322,13 @@
         if (cmd === '0') {
           tab.term.write(payload);
         } else if (cmd === '1') {
-          const title = textDecoder.decode(payload);
-          if (!tab.sessionName && title && title.trim()) {
-            tab.sessionName = title.trim().split(/[\r\n]/)[0];
+          const raw = textDecoder.decode(payload).replace(/[\u0000-\u001f]/g, '').trim().split(/[\r\n]/)[0];
+          const name = raw && !raw.includes('/') && raw !== 'tab.sh' ? raw : '';
+          const current = tab.sessionName && !String(tab.sessionName).includes('/') && tab.sessionName !== 'tab.sh'
+            ? tab.sessionName
+            : '';
+          if (name && !current) {
+            tab.sessionName = name;
             renderTabsBar();
           }
         }
@@ -601,7 +605,7 @@
 
     async function openProject(name) {
       const tab = tabs.get(activeTabId);
-      if (!tab || !name) return;
+      if (!tab || !name || !tab.sessionName || String(tab.sessionName).includes('/')) return;
       await runControlCommand(['--project-go', tab.sessionName, name]);
     }
     document.getElementById('add-tab-btn').onclick = () => createTab();

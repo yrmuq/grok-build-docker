@@ -169,6 +169,7 @@ case "${1:-}" in
             done
             tmux new-session -d -s "chat${i}"
             flock -u 9
+            printf '\033]0;chat%s\007' "$i"
             exec tmux attach-session -t "chat${i}"
         ) 9>/tmp/grok-tab-new.lock
         ;;
