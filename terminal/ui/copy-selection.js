@@ -1,7 +1,10 @@
-/* grok-copy-selection: a drag selects text in the browser, even while Grok
-   has mouse reporting on. Mouseup copies that text. A plain click still goes
-   to Grok. Ctrl+C copies and does not also interrupt the shell. */
+/* grok-copy-selection: a drag selects text even while Grok has mouse reporting on.
+   Releasing the button copies the text, clears the highlight, and shows "copied".
+   A plain click still goes to Grok. */
 (function () {
+  let banner;
+  let bannerTimer;
+
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).catch(function () {});
@@ -19,6 +22,36 @@
     area.select();
     try { document.execCommand('copy'); } catch (err) {}
     area.remove();
+  }
+
+  function showCopied(term) {
+    const theme = (term && term.options && term.options.theme) || {};
+    const background = theme.background || '#141414';
+    const foreground = theme.foreground || '#e1e1e1';
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.textContent = 'copied';
+      document.body.appendChild(banner);
+    }
+    banner.style.cssText = [
+      'position:fixed',
+      'left:12px',
+      'bottom:12px',
+      'z-index:40',
+      'padding:6px 10px',
+      'border-radius:6px',
+      'border:1px solid ' + foreground,
+      'background:' + background,
+      'color:' + foreground,
+      'font:13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace',
+      'pointer-events:none',
+      'opacity:1',
+      'transition:opacity .25s linear'
+    ].join(';');
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(function () {
+      if (banner) banner.style.opacity = '0';
+    }, 900);
   }
 
   const replayed = new WeakSet();
@@ -45,14 +78,6 @@
     const screen = root.querySelector('.xterm-screen');
     if (!screen) return;
     root.__grokMouseCopy = true;
-
-    // A buttonless move is reported to Grok. xterm treats that report as typing
-    // and clears the highlight, so the selection vanished on mouseup.
-    root.addEventListener('mousemove', function (event) {
-      if (event.buttons) return;
-      if (!term.hasSelection()) return;
-      event.stopImmediatePropagation();
-    }, true);
 
     screen.addEventListener('mousedown', function (event) {
       if (replayed.has(event)) return;
@@ -84,6 +109,8 @@
         const text = term.getSelection();
         if (text) {
           copyText(text);
+          if (term.clearSelection) term.clearSelection();
+          showCopied(term);
           term.focus();
         }
       }
