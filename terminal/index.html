@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-tab-title-v2 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-projects-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -567,8 +567,9 @@
     }
     async function loadProjects() {
       const select = document.getElementById('project-select');
-      if (document.activeElement === select) return;
+      if (document.activeElement === select) return false;
       const out = await runControlCommand(['--projects']);
+      if (!out.includes('__PROJECTS_END__')) return false;
       const names = [];
       out.split('\n').forEach((line) => {
         const match = line.match(/__PROJECT__:(.*)/);
@@ -594,6 +595,7 @@
       if ([...select.options].some((opt) => opt.value === previous && previous !== '+')) {
         select.value = previous;
       }
+      return true;
     }
 
     function openProjectDialog() {
@@ -697,7 +699,9 @@
       updateAllTerminalSettings();
       pollGrokTheme();
       setInterval(pollGrokTheme, 2000);
-      loadProjects();
+      for (let attempt = 0; attempt < 8 && !await loadProjects(); attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
       setInterval(loadProjects, 5000);
       const existing = await listExistingSessions();
       if (existing.length > 0) {

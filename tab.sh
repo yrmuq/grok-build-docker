@@ -126,6 +126,7 @@ case "${1:-}" in
                 printf '__PROJECT__:%s\n' "$name"
             done
         fi
+        printf '__PROJECTS_END__\n'
         exit 0
         ;;
     --project-mkdir)
