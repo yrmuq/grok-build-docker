@@ -4,7 +4,7 @@
   <h1>Grok Build Docker (Unofficial)</h1>
 
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-  [![Base Image: Ubuntu](https://img.shields.io/badge/Ubuntu-Base-E95420?logo=ubuntu&logoColor=white)](https://hub.docker.com/_/ubuntu)
+  [![Image](https://img.shields.io/badge/ghcr.io-image-2496ED?logo=docker&logoColor=white)](https://github.com/yrmuq/grok-build-docker/pkgs/container/grok-build-docker)
 
   <p>
     A self-hosted, persistent <code>Docker</code> environment and multi-tab web terminal wrapper for the <code>grok</code> AI coding agent CLI, integrating <code>ttyd</code>, <code>tmux</code>, <code>xterm.js</code>, <code>mise</code>, and <code>Starship</code> for a zero-bloat, isolated workspace.
@@ -16,7 +16,7 @@
 > [!WARNING]
 > **Unofficial Community Project:** This repository is an **unofficial**, community-maintained `Docker` environment and web terminal wrapper. It is **not** affiliated with, endorsed by, sponsored by, or officially connected to **xAI (X.AI Corp.)** or any of its subsidiaries.
 >
-> **No Proprietary Binaries Included:** To strictly respect redistribution terms and upstream licensing, this repository and its `Dockerfile` do **not** contain or distribute any pre-packaged `grok-build` binaries. The official `grok` CLI is downloaded directly from `https://x.ai/cli/install.sh` onto your local host volume (`/core`) during the container's first startup.
+> **No Proprietary Binaries Included:** To strictly respect redistribution terms and upstream licensing, this repository, its `Dockerfile`, and the published container image do **not** contain or distribute any pre-packaged `grok-build` binaries. The official `grok` CLI is downloaded directly from `https://x.ai/cli/install.sh` onto your local host volume (`/core`) during the container's first startup.
 
 ---
 
@@ -91,8 +91,7 @@ services:
 
   grok_build:
     container_name: grok_build
-    build: [https://github.com/yrmuq/grok-build-docker.git#main](https://github.com/yrmuq/grok-build-docker.git#main)
-    image: grok_build:latest
+    image: ghcr.io/yrmuq/grok-build-docker:latest
     ports:
       - ${GROK_BUILD}:7681
     volumes:
@@ -125,20 +124,24 @@ GROK_BUILD=7681
 
 ```
 
-Build and start the container, then optionally follow the logs to verify the initial `grok` CLI installation:
+Pull the published image and start the container, then optionally follow the logs to verify the initial `grok` CLI installation:
 
 ```bash
+docker compose pull
 docker compose up -d
 docker logs -f grok_build
 
 ```
 
-To pull upstream repository updates and rebuild the `grok_build:latest` image:
+GitHub builds `linux/amd64` and `linux/arm64` on every push to `main` and publishes both as `ghcr.io/yrmuq/grok-build-docker:latest`. To update an existing container:
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 
 ```
+
+Building the image yourself is only needed if you change the `Dockerfile`. The published image does not include the `grok` binary.
 
 ---
 
