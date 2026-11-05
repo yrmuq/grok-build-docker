@@ -81,8 +81,9 @@ RUN printf '%s\n' \
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY tab.sh /app/tab.sh
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY gh-wrapper.sh /usr/local/libexec/ghwrap/gh
 COPY terminal/ /opt/terminal-defaults/
-RUN chmod 755 /usr/local/bin/entrypoint.sh /app/tab.sh \
+RUN chmod 755 /usr/local/bin/entrypoint.sh /app/tab.sh /usr/local/libexec/ghwrap/gh \
     && chown -R 1000:1000 /app /opt/terminal-defaults
 
 WORKDIR /projects

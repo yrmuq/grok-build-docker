@@ -54,7 +54,7 @@ All stateful data resides outside the container image across 5 dedicated host-mo
 
 | Container Path | Purpose |
 | :--- | :--- |
-| `/core` | `GROK_HOME` — stores the `grok` binary, OAuth tokens (`auth.json`), `config.toml`, `AGENTS.md`, memory, sessions, and `git` worktrees. |
+| `/core` | `GROK_HOME` — stores the `grok` binary, OAuth tokens (`auth.json`), `config.toml`, `AGENTS.md`, memory, sessions, and `git` worktrees. `gh` stores its GitHub token in `/core/gh` and git identity in `/core/gitconfig`, so both survive a new session and a new container. |
 | `/utilities` | Persistent storage for runtimes and CLI tools installed via `mise`, `cargo`, `rustup`, `uv`, and `npm`. |
 | `/skills` | Custom `grok` skills (`/skills/<skill_name>/SKILL.md`), automatically linked to `/core/skills`. |
 | `/projects` | Default `WORKDIR` for `git` repositories and coding projects. |

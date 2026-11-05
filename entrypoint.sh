@@ -31,7 +31,9 @@ as_coder() {
         UV_PYTHON_INSTALL_DIR=/utilities/uv/python \
         UV_TOOL_DIR=/utilities/uv/tools \
         NPM_CONFIG_PREFIX=/utilities/npm \
-        PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin" \
+        GH_CONFIG_DIR=/core/gh \
+        GIT_CONFIG_GLOBAL=/core/gitconfig \
+        PATH="/usr/local/libexec/ghwrap:/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin" \
         LANG="${LANG:-en_US.UTF-8}" \
         LC_ALL="${LC_ALL:-en_US.UTF-8}" \
         TZ="${TZ:-UTC}" \
@@ -81,7 +83,7 @@ if [ ! -f /core/AGENTS.md ]; then
 2. **Installing Languages & Utilities (`/utilities`)**: Always use `mise` to install any language, runtime, or CLI utility globally into `/utilities`:
    - Example: `mise use -g python@latest node@lts rust@latest ripgrep@latest fd@latest gh@latest uv@latest`
 3. **Directory Layout**:
-   - `/core`: Grok Build binary, config, memory, sessions (`GROK_HOME`).
+   - `/core`: Grok Build binary, config, memory, sessions (`GROK_HOME`). GitHub CLI credentials are `/core/gh` and git settings are `/core/gitconfig`.
    - `/utilities`: All installed languages, runtimes, and tools (`mise`, `cargo`, `uv`, `npm`).
    - `/skills`: Custom skills directory (`/skills/<skill_name>/SKILL.md`), linked from `$GROK_HOME/skills`.
    - `/projects`: User workspaces and git repositories.
@@ -107,6 +109,23 @@ persist_grok_home() {
     fi
     chown -h 1000:1000 /home/coder/.grok 2>/dev/null || true
     chown 1000:1000 /core/downloads /core/bin
+}
+
+# gh and git identity must live on /core. /home/coder is wiped when the
+# container is recreated, and the session keyring dies with the shell.
+persist_github_auth() {
+    mkdir -p /core/gh
+    if [ -d /home/coder/.config/gh ] && [ ! -f /core/gh/hosts.yml ]; then
+        cp -a /home/coder/.config/gh/. /core/gh/ || true
+    fi
+    if [ -f /home/coder/.gitconfig ] && [ ! -f /core/gitconfig ]; then
+        cp -a /home/coder/.gitconfig /core/gitconfig
+    fi
+    touch /core/gitconfig
+    chown -R 1000:1000 /core/gh
+    chown 1000:1000 /core/gitconfig
+    chmod 700 /core/gh
+    chmod 600 /core/gitconfig /core/gh/hosts.yml /core/gh/config.yml 2>/dev/null || true
 }
 
 link_managed() {
@@ -142,6 +161,7 @@ link_managed() {
 }
 
 persist_grok_home
+persist_github_auth
 
 cat << 'EOF' > /etc/zsh/zshrc
 export GROK_HOME=/core
@@ -155,7 +175,9 @@ export UV_CACHE_DIR=/utilities/uv/cache
 export UV_PYTHON_INSTALL_DIR=/utilities/uv/python
 export UV_TOOL_DIR=/utilities/uv/tools
 export NPM_CONFIG_PREFIX=/utilities/npm
-export PATH="/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin"
+export GH_CONFIG_DIR=/core/gh
+export GIT_CONFIG_GLOBAL=/core/gitconfig
+export PATH="/usr/local/libexec/ghwrap:/core/bin:/utilities/mise/shims:/utilities/cargo/bin:/utilities/uv/tools/bin:/utilities/npm/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sbin:/bin"
 eval "$(mise activate zsh)"
 eval "$(starship init zsh)"
 if ! command -v grok >/dev/null 2>&1; then
