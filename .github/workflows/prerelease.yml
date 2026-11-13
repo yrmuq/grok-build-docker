@@ -1,0 +1,68 @@
+name: Dependency prerelease
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  prepare:
+    if: contains(github.event.head_commit.message, 'Merge branch ''deps''')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test
+        run: |
+          bash tests/bump-version.test.sh
+          node --test tests/i18n.test.mjs
+      - name: Next prerelease version
+        id: ver
+        run: echo "version=$(bash scripts/bump-version.sh prerelease VERSION)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: prepare
+    if: needs.prepare.result == 'success'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish-image.yml
+    with:
+      tag: dev
+      ref: ${{ github.sha }}
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  record:
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag the dependency prerelease
+        env:
+          VERSION_NEXT: ${{ needs.prepare.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --tags
+          if ! git rev-parse "v${VERSION_NEXT}" >/dev/null 2>&1; then
+            printf '%s\n' "$VERSION_NEXT" > VERSION
+            git add VERSION
+            git commit -m "Add version ${VERSION_NEXT}." -m "[prerelease]"
+            git tag "v${VERSION_NEXT}"
+            git push origin HEAD:dev
+            git push origin "v${VERSION_NEXT}"
+          fi
+          if ! gh release view "v${VERSION_NEXT}" >/dev/null 2>&1; then
+            gh release create "v${VERSION_NEXT}" --title "v${VERSION_NEXT}" --prerelease --notes "Dependency update ${VERSION_NEXT}."
+          fi
