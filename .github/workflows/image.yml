@@ -12,7 +12,7 @@ jobs:
       group: dev-checks
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Test version bump
         run: bash tests/bump-version.test.sh
       - name: Test catalogs
