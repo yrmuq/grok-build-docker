@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-tab-plus-v1 -->
+<!-- grok-theme-sync-v2 grok-tab-rename-v9 grok-fonts-v1 grok-tab-plus-v1 grok-i18n-v1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -98,6 +98,11 @@
         <button class="step-btn" id="font-dec" title="Decrease Font Size">[-]</button>
         <span id="font-size-label">15px</span>
         <button class="step-btn" id="font-inc" title="Increase Font Size">[+]</button>
+        <select id="lang-select" title="Language">
+          <option value="system">System</option>
+          <option value="en">English</option>
+          <option value="ru">Russian</option>
+        </select>
       </div>
     </div>
     <div id="terminals"></div>
@@ -111,8 +116,62 @@
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
+  <script src="/ui/i18n.js"></script>
   <script src="/ui/copy-selection.js" data-grok-copy-selection></script>
   <script>
+    let langChoice = localStorage.getItem('grok_lang') || 'system';
+    if (langChoice !== 'system' && langChoice !== 'en' && langChoice !== 'ru') langChoice = 'system';
+    const catalogs = { en: null, ru: null };
+
+    function activeCode() {
+      if (langChoice === 'ru') return 'ru';
+      if (langChoice === 'en') return 'en';
+      return (navigator.language || '').toLowerCase().startsWith('ru') ? 'ru' : 'en';
+    }
+
+    function grokT(id, vars) {
+      const catalog = catalogs[activeCode()] || catalogs.en;
+      if (!catalog || !window.GrokI18n) return '';
+      return window.GrokI18n.translate(catalog, id, vars);
+    }
+    window.grokT = grokT;
+
+    async function loadCatalogs() {
+      const load = async (file) => {
+        const res = await fetch('/languages/' + file, { cache: 'no-store', credentials: 'same-origin' });
+        if (!res.ok) throw new Error(file);
+        return window.GrokI18n.parseCatalog(await res.text());
+      };
+      catalogs.en = await load('English.ini');
+      catalogs.ru = await load('Russian.ini');
+    }
+
+    function applyLanguage() {
+      const code = activeCode();
+      document.documentElement.lang = code;
+      const text = (id, vars) => grokT(id, vars);
+      if (!catalogs.en) return;
+      document.title = text(1);
+      document.getElementById('add-tab-btn').title = text(2);
+      document.getElementById('project-select').title = text(3);
+      document.getElementById('theme-select').title = text(4);
+      document.getElementById('font-select').title = text(5);
+      document.getElementById('font-dec').title = text(6);
+      document.getElementById('font-inc').title = text(7);
+      document.getElementById('project-name').placeholder = text(8);
+      const lang = document.getElementById('lang-select');
+      lang.title = text(15);
+      if (document.activeElement !== lang) lang.value = langChoice;
+      lang.options[0].textContent = text(12);
+      lang.options[1].textContent = text(13);
+      lang.options[2].textContent = text(14);
+      const hidden = document.querySelector('#project-select option[value=""]');
+      if (hidden) hidden.textContent = text(3);
+      const mono = document.querySelector('#font-select option[value="monospace"]');
+      if (mono) mono.textContent = text(17);
+      renderTabsBar();
+    }
+
     let THEMES = {};
 
     let currentTheme = localStorage.getItem('grok_theme') || 'groknight';
@@ -243,7 +302,7 @@
         );
         options.push({ value: `'${family}', monospace`, label: family });
       });
-      options.push({ value: 'monospace', label: 'System Monospace' });
+      options.push({ value: 'monospace', label: grokT(17) || 'System Monospace' });
       let style = document.getElementById('font-faces');
       if (!style) {
         style = document.createElement('style');
@@ -422,7 +481,7 @@
       ev.stopPropagation();
       const tab = tabs.get(id);
       if (!tab) return;
-      if (!confirm(`Close and terminate session "${tab.sessionName}"?`)) return;
+      if (!confirm(grokT(9, { name: tab.sessionName }) || `Close and terminate session "${tab.sessionName}"?`)) return;
       tab.closing = true;
       if (tab.ws) {
         try { tab.ws.close(); } catch {}
@@ -511,7 +570,7 @@
         if (tab.dead) {
           const badge = document.createElement('span');
           badge.className = 'reconnect-badge';
-          badge.textContent = 'Reconnect';
+          badge.textContent = grokT(10) || 'Reconnect';
           badge.onclick = (e) => {
             e.stopPropagation();
             connectTabSocket(tab);
@@ -522,7 +581,7 @@
         const closeBtn = document.createElement('span');
         closeBtn.className = 'tab-close';
         closeBtn.textContent = '×';
-        closeBtn.title = 'Close Session';
+        closeBtn.title = grokT(18) || 'Close Session';
         closeBtn.onclick = (e) => closeTab(tab.id, e);
         el.appendChild(closeBtn);
 
@@ -593,7 +652,7 @@
       const placeholder = document.createElement('option');
       placeholder.value = '';
       placeholder.hidden = true;
-      placeholder.textContent = 'Projects';
+      placeholder.textContent = grokT(3) || 'Projects';
       select.appendChild(placeholder);
       const plus = document.createElement('option');
       plus.value = '+';
@@ -689,6 +748,12 @@
       }
     };
 
+    document.getElementById('lang-select').onchange = (event) => {
+      langChoice = event.target.value;
+      localStorage.setItem('grok_lang', langChoice);
+      applyLanguage();
+    };
+
     window.addEventListener('resize', () => {
       const tab = tabs.get(activeTabId);
       if (tab) {
@@ -699,9 +764,13 @@
 
     (async () => {
       try {
+        await loadCatalogs();
+        applyLanguage();
+      } catch (err) {}
+      try {
         await loadThemes();
       } catch (err) {
-        document.body.textContent = 'Failed to load /terminal/themes. Check themes/manifest.json.';
+        document.body.textContent = grokT(11) || 'Failed to load /terminal/themes. Check themes/manifest.json.';
         return;
       }
       try {

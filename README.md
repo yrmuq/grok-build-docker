@@ -5,10 +5,6 @@
 
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
   [![Image](https://img.shields.io/badge/ghcr.io-image-2496ED?logo=docker&logoColor=white)](https://github.com/yrmuq/grok-build-docker/pkgs/container/grok-build-docker)
-
-  <p>
-    A self-hosted, persistent <code>Docker</code> environment and multi-tab web terminal wrapper for the <code>grok</code> AI coding agent CLI, integrating <code>ttyd</code>, <code>tmux</code>, <code>xterm.js</code>, <code>mise</code>, and <code>Starship</code> for a zero-bloat, isolated workspace.
-  </p>
 </div>
 
 ---
@@ -16,9 +12,14 @@
 > [!WARNING]
 > **Unofficial Community Project:** This repository is an **unofficial**, community-maintained `Docker` environment and web terminal wrapper. It is **not** affiliated with, endorsed by, sponsored by, or officially connected to **xAI (X.AI Corp.)** or any of its subsidiaries.
 >
-> **No Proprietary Binaries Included:** To strictly respect redistribution terms and upstream licensing, this repository, its `Dockerfile`, and the published container image do **not** contain or distribute any pre-packaged `grok-build` binaries. The official `grok` CLI is downloaded directly from `https://x.ai/cli/install.sh` onto your local host volume (`/core`) during the container's first startup.
+> **No Proprietary Binaries Included:** This repository, its `Dockerfile`, and the published container image do **not** contain or distribute a `grok` binary. The official `grok` CLI is downloaded from `https://x.ai/cli/install.sh` onto the host volume `/core` during the container's first startup.
+
+> [!NOTE]
+> This project is in active development. Behavior can change, bugs may occur, and saved browser settings can become outdated.
 
 ---
+
+A self-hosted `Docker` image and multi-tab web terminal for the `grok` coding agent. It keeps the agent, tools, and projects on host volumes, and serves the terminal with `ttyd`, `tmux`, and `xterm.js`.
 
 ![Grok Build Docker](docs/screenshot.webp)
 
@@ -26,14 +27,18 @@
 
 ## Features
 
-* **Zero-Bloat Persistent Architecture:** Separated host-mounted volumes isolate agent binaries, runtime toolchains, custom skills, web assets, and user workspaces from the container image.
-* **Custom Multi-Tab Web UI:** Built on `ttyd`, `tmux`, and `xterm.js` with a 100% mouse-driven top bar. Closing the browser tab detaches seamlessly; reopening restores all active `tmux` sessions (`chat0`, `chat1`, etc.) as browser tabs.
-* **Two-Way Live Theme & Font Sync:** Includes `GrokNight`, `GrokDay`, `Tokyo Night`, `Rose Pine Moon`, and `Oscura Midnight` palettes synchronized with the `/theme` command inside `grok`. Custom font files (`woff2`, `woff`, `ttf`, `otf`) placed in `/terminal/fonts/` are automatically populated in the UI selector alongside `System Monospace`, with font size persisted in `localStorage`.
-* **Sandboxed Package Management:** Runs as a non-root user (`coder`, `UID:GID 1000:1000`) with `sudo`, `apt`, and `apt-get` blocked at runtime. An `apt` wrapper redirects the AI agent to install programming languages, compilers, and CLI tools directly into the persistent `/utilities` volume via `mise`.
+* Persistent volumes for the agent home, installed tools, skills, projects, and the web terminal.
+* Multi-tab terminal. Closing the browser detaches `tmux`; reopening restores sessions `chat0`, `chat1`, and so on.
+* Terminal palettes, including `GrokNight` and `GrokDay`, synced with `/theme` inside `grok`. Fonts placed in `/terminal/fonts/` show up in the font menu.
+* Non-root user `coder` (`UID:GID` `1000:1000`). `sudo` and `apt` are blocked. Tools install into `/utilities` with `mise`.
+* UI language follows the browser, or a manual English / Russian choice, without reloading.
 
 ---
 
 ## Controls & Shortcuts
+
+<details>
+<summary>Controls</summary>
 
 | Input | Action |
 | :--- | :--- |
@@ -43,30 +48,19 @@
 | Click `[×]` (Tab Bar) | Terminate the `tmux` session and close the tab. |
 | Click `Reconnect` | Re-establish a dropped WebSocket connection. |
 | Project Menu (`+`) | Prompt for a folder name, create it under `/projects`, and execute `cd` and `grok` if the active shell is idle. |
-| Theme Selector / `/theme` | Switch color palettes (`GrokNight`, `GrokDay`, `Tokyo Night`, `Rose Pine Moon`, `Oscura Midnight`) with two-way synchronization. |
-| Font Selector | Switch active terminal font from `/terminal/fonts/` or `System Monospace`. |
+| Theme Selector / `/theme` | Switch color palettes with two-way synchronization. |
+| Font Selector | Switch the terminal font. |
+| Language Selector | `System`, English, or Russian. The change is immediate. |
+
+`Ctrl+C` with no selection still interrupts `grok`.
+
+</details>
 
 ---
 
-## Directory Architecture
+## Installation & Usage
 
-All stateful data resides outside the container image across 5 dedicated host-mounted volumes:
-
-| Container Path | Purpose |
-| :--- | :--- |
-| `/core` | `GROK_HOME` — stores the `grok` binary, OAuth tokens (`auth.json`), `config.toml`, `AGENTS.md`, memory, sessions, and `git` worktrees. `gh` stores its GitHub token in `/core/gh` and git identity in `/core/gitconfig`, so both survive a new session and a new container. |
-| `/utilities` | Persistent storage for runtimes and CLI tools installed via `mise`, `cargo`, `rustup`, `uv`, and `npm`. |
-| `/skills` | Custom `grok` skills (`/skills/<skill_name>/SKILL.md`), automatically linked to `/core/skills`. |
-| `/projects` | Default `WORKDIR` for `git` repositories and coding projects. |
-| `/terminal` | Web UI (`index.html`), theme JSON files (`/terminal/themes/`), and custom fonts (`/terminal/fonts/`). Changes apply on browser refresh without rebuilding the image. |
-
----
-
-## Quick Start (Docker Compose)
-
-### Architecture Support
-
-Build the image directly on the target host so `docker compose build` selects the matching `ttyd` binary:
+### Architecture & Format Support
 
 | Architecture | Status |
 | :--- | :---: |
@@ -74,21 +68,25 @@ Build the image directly on the target host so `docker compose build` selects th
 | `arm64` | ✅ |
 | `arm` (32-bit) | ❌ |
 
-### Deployment
+### Release Scheme
 
-Create the persistent directories on the host and set `1000:1000` ownership:
+Stable releases are `X.Y.0`. A version `X.Y.Z` with `Z > 0` is an automatic dependency-update prerelease and is not the stable image. CI creates the git tag and the GitHub Release. No stable release has been published yet. The full list is the [GitHub releases](https://github.com/yrmuq/grok-build-docker/releases) page.
+
+The image has two tags. `latest` is the stable image and moves only when a release is published from `main`. `dev` is the development image and moves on every push to `dev`. `dev` does not move `latest`.
+
+### Docker
+
+Create the host directories and give them to `1000:1000`:
 
 ```bash
 mkdir -p docker/data/grok_build/{core,utilities,skills,projects,terminal}
 sudo chown -R 1000:1000 docker/data/grok_build
-
 ```
 
-Add the service to `docker-compose.yml`:
+`docker-compose.yml`:
 
 ```yaml
 services:
-
   grok_build:
     container_name: grok_build
     image: ghcr.io/yrmuq/grok-build-docker:latest
@@ -110,95 +108,79 @@ services:
         max-size: "55m"
         max-file: "1"
     restart: unless-stopped
-
 ```
 
-Create a companion `.env` file (prefixed variable names avoid conflicts with default Linux shell variables like `USER`, `PASSWORD`, and `TZ`):
+`.env`:
 
 ```dotenv
-GROK_TZ=Europe/Tallinn
-LOCATION=/home/user
+GROK_TZ=UTC
+LOCATION=/path/to/data
 GROK_USER=admin
-GROK_PASSWORD=supersecretpassword # Leave empty to disable login
+GROK_PASSWORD=
 GROK_BUILD=7681
-
 ```
 
-Pull the published image and start the container, then optionally follow the logs to verify the initial `grok` CLI installation:
+Leave `GROK_PASSWORD` empty to disable login.
 
 ```bash
 docker compose pull
 docker compose up -d
-docker logs -f grok_build
-
 ```
 
-GitHub builds `linux/amd64` and `linux/arm64` on every push to `main` and publishes both as `ghcr.io/yrmuq/grok-build-docker:latest`. To update an existing container:
+Use `ghcr.io/yrmuq/grok-build-docker:dev` instead of `latest` to follow the development branch.
 
-```bash
-docker compose pull
-docker compose up -d
+| Container Path | Purpose |
+| :--- | :--- |
+| `/core` | `GROK_HOME`: the `grok` binary, `auth.json`, `config.toml`, `AGENTS.md`, memory, and sessions. `gh` token files are `/core/gh`. Git identity is `/core/gitconfig`. |
+| `/utilities` | Runtimes and CLI tools from `mise`, `cargo`, `rustup`, `uv`, and `npm`. |
+| `/skills` | Custom skills (`/skills/<skill_name>/SKILL.md`), linked from `/core/skills`. |
+| `/projects` | Default `WORKDIR` for repositories. |
+| `/terminal` | Web UI (`index.html`), theme JSON, and fonts. A new image replaces `index.html` when its marker is missing, and replaces the shipped theme pack when its pack id changes. Other files you add stay. |
 
-```
+`docker compose pull` does not update the `grok` binary or the tools already installed under `/utilities`. Those live on the volumes. Update the agent with `grok update` inside the container. Install tools with `mise use -g <tool>@latest`.
 
-Building the image yourself is only needed if you change the `Dockerfile`. The published image does not include the `grok` binary.
+#### Authentication & Usage
 
----
-
-## Authentication & Usage
-
-1. Navigate to `http://<SERVER_IP>:7681` and authenticate using `GROK_USER` and `GROK_PASSWORD`.
-2. Authenticate `grok` using an xAI / X subscription via headless device authentication:
+1. Open `http://<SERVER_IP>:7681`. If `GROK_PASSWORD` is set, sign in with `GROK_USER` and `GROK_PASSWORD`.
+2. Sign in to `grok` with a subscription, using device authentication:
 
 ```bash
 grok login --device-auth
-
 ```
 
-3. Open the verification URL in a browser, enter the code to store the session token in `/core`, and start the agent:
+3. Open the URL, enter the code, then start the agent:
 
 ```bash
 grok
-
 ```
 
-4. Install additional runtimes or CLI tools persistently via `mise`:
+4. Install extra tools so they survive a new container:
 
 ```bash
 mise use -g python@latest rust@latest go@latest gh@latest
-
 ```
 
-5. Update the `grok` CLI binary in `/core` when new versions release:
-
-```bash
-grok update
-
-```
+`gh auth login` stores the token on `/core`. Log in again once after moving to an image that added that volume path, if an older token was only in the container home.
 
 ---
 
 ## License & Attribution
 
-### Repository License
-
-The scripts, configuration files, `Dockerfile`, `entrypoint.sh`, `tab.sh`, and custom web interface (`index.html`) in this repository are licensed under `GPL-3.0`. See the `LICENSE` file for full details.
-
-### Third-Party Software & Attributions
+The scripts, `Dockerfile`, and web UI in this repository are licensed under `GPL-3.0-only`. See [LICENSE](LICENSE).
 
 | Component | Upstream | License | Integration Details |
 | --- | --- | --- | --- |
-| `grok` (`grok-build`) | [xai-org/grok-build](https://github.com/xai-org/grok-build) | `Apache-2.0` / xAI ToS | AI coding agent CLI downloaded to `/core` at runtime. |
-| `ttyd` | [tsl0922/ttyd](https://github.com/tsl0922/ttyd) | `MIT` | Web-based terminal server. |
-| `xterm.js` (+ `fit` & `web-links` addons) | [xtermjs/xterm.js](https://www.google.com/search?q=https://github.com/xtermjs/xterm.js) | `MIT` | Browser terminal emulator frontend loaded via CDN. |
-| `tmux` | [tmux/tmux](https://github.com/tmux/tmux) | `ISC` | Terminal multiplexer for persistent multi-tab sessions. |
-| `mise` (`mise-en-place`) | [jdx/mise](https://github.com/jdx/mise) | `MIT` | Polyglot runtime and CLI package manager targeting `/utilities`. |
-| `Starship` | [starship/starship](https://github.com/starship/starship) | `ISC` | Cross-shell terminal prompt. |
-| `JetBrains Mono` | [JetBrains/JetBrainsMono](https://github.com/JetBrains/JetBrainsMono) | `OFL-1.1` | Bundled monospace font copied to `/terminal/fonts/`. |
-| `Fira Code` | [tonsky/FiraCode](https://github.com/tonsky/FiraCode) | `OFL-1.1` | Bundled monospace font copied to `/terminal/fonts/`. |
-| `GrokNight` / `GrokDay` | [xai-org/grok-build](https://github.com/xai-org/grok-build) | `Apache-2.0` | Terminal color palettes stored in `/terminal/themes/`. |
-| `Tokyo Night` | [enkia/tokyo-night-vscode-theme](https://github.com/enkia/tokyo-night-vscode-theme) | `MIT` | Terminal color palette stored in `/terminal/themes/`. |
-| `Rosé Pine Moon` | [rose-pine/rose-pine-theme](https://github.com/rose-pine/rose-pine-theme) | `MIT` | Terminal color palette stored in `/terminal/themes/`. |
-| `Oscura Midnight` | [narative/oscura](https://github.com/narative/oscura) | `MIT` | Terminal color palette stored in `/terminal/themes/`. |
+| `grok` (`grok-build`) | [xai-org/grok-build](https://github.com/xai-org/grok-build) | `Apache-2.0` | AI coding agent CLI downloaded to `/core` at runtime. Not baked into the image. |
+| `ttyd` | [tsl0922/ttyd](https://github.com/tsl0922/ttyd) | `MIT` | Web terminal server. |
+| `xterm.js` (+ `fit` and `web-links` addons) | [xtermjs/xterm.js](https://github.com/xtermjs/xterm.js) | `MIT` | Browser terminal, loaded from the CDN. |
+| `tmux` | [tmux/tmux](https://github.com/tmux/tmux) | `ISC` | Terminal multiplexer. |
+| `mise` (`mise-en-place`) | [jdx/mise](https://github.com/jdx/mise) | `MIT` | Runtime manager. Tools go to `/utilities`. |
+| `Starship` | [starship/starship](https://github.com/starship/starship) | `ISC` | Shell prompt. |
+| `JetBrains Mono` | [JetBrains/JetBrainsMono](https://github.com/JetBrains/JetBrainsMono) | `OFL-1.1` | Bundled font copied to `/terminal/fonts/`. |
+| `Fira Code` | [tonsky/FiraCode](https://github.com/tonsky/FiraCode) | `OFL-1.1` | Bundled font copied to `/terminal/fonts/`. |
+| `GrokNight` / `GrokDay` | [xai-org/grok-build](https://github.com/xai-org/grok-build) | `Apache-2.0` | Terminal palettes in `/terminal/themes/`. |
+| `Tokyo Night` | [enkia/tokyo-night-vscode-theme](https://github.com/enkia/tokyo-night-vscode-theme) | `MIT` | Terminal palette in `/terminal/themes/`. |
+| `Rosé Pine Moon` | [rose-pine/rose-pine-theme](https://github.com/rose-pine/rose-pine-theme) | `MIT` | Terminal palette in `/terminal/themes/`. |
+| `Oscura Midnight` | [narative/oscura](https://github.com/narative/oscura) | `MIT` | Terminal palette in `/terminal/themes/`. |
 
 *"Grok" and "xAI" are trademarks of X.AI Corp. All third-party trademarks and logos belong to their respective owners.*

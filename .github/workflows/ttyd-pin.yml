@@ -1,0 +1,36 @@
+name: Update pinned ttyd
+
+on:
+  schedule:
+    - cron: "0 9 * * 5"
+  workflow_dispatch:
+
+jobs:
+  ttyd:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: deps
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit a newer ttyd pin on deps
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          current="$(grep -o 'ttyd/releases/download/[^/]*' Dockerfile | head -1 | awk -F/ '{print $NF}')"
+          [ -n "$current" ]
+          latest="$(gh api repos/tsl0922/ttyd/releases/latest --jq .tag_name)"
+          latest="${latest#v}"
+          if [ "$latest" = "$current" ]; then
+            exit 0
+          fi
+          sed -i "s|download/${current}/|download/${latest}/|" Dockerfile
+          git add Dockerfile
+          git commit -m "Bump the pinned ttyd release."
+          git push origin HEAD:deps

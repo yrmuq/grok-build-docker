@@ -30,7 +30,7 @@
     const foreground = theme.foreground || '#e1e1e1';
     if (!banner) {
       banner = document.createElement('div');
-      banner.textContent = 'copied';
+      banner.textContent = (window.grokT && window.grokT(16)) || 'copied';
       document.body.appendChild(banner);
     }
     banner.style.cssText = [

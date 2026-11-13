@@ -1,8 +1,7 @@
 ## Protected Areas
 
-- Do not add a `dev` branch, pull requests, `release.yml`, version tags, or Dependabot; keep integrating and publishing the image from `main`, because the maintainer accepted that flow on 2026-11-13.
-- Do not add `languages/` or translate the terminal UI unless the maintainer explicitly asks, because that same review left the page in English.
-- Do not restructure `README.md` into a desktop, AppImage, or Flatpak layout unless the maintainer explicitly asks, because that review kept the container-only document.
+- Do not add AppImage, Flatpak, or a desktop layout to the README or CI unless the maintainer explicitly asks, because they excluded those packages on 2026-11-13 and this repository ships only the container.
+- Do not replace the terminal palettes with System, Light, and Dark modes unless the maintainer explicitly asks, because they kept the grok `/theme` palettes on 2026-11-13.
 
 ## Required Behavior
 
@@ -11,6 +10,7 @@
 - Deliver Ctrl+C to the terminal when nothing is selected so grok can be interrupted; copy and swallow that key only while a selection exists, because the maintainer kept the interrupt.
 - Send `cd` and `grok` from `--project-go` only when the pane command is `zsh`, `bash`, or `sh`, because those keys must not be typed into a running grok session.
 - When `/terminal/index.html` lacks the current marker, or `/terminal/themes/.pack` is not the shipped pack id, replace those shipped files on startup so an image update reaches the volume; do not treat that replacement as accidental data loss.
+- Publish the image only as `dev` from branch `dev` and `latest` from a stable `main` release; a `dev` publish must not move `latest`, because the maintainer asked for these two tags on 2026-11-13.
 
 ## Compatibility Workarounds
 

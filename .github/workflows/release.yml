@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: ${{ !contains(github.event.head_commit.message, '[release]') }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test
+        run: |
+          bash tests/bump-version.test.sh
+          node --test tests/i18n.test.mjs
+      - name: Next stable version
+        id: ver
+        run: echo "version=$(bash scripts/bump-version.sh stable VERSION)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: prepare
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish-image.yml
+    with:
+      tag: latest
+      ref: ${{ github.sha }}
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  record:
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag the stable release and update dev
+        env:
+          VERSION_NEXT: ${{ needs.prepare.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --tags
+          if ! git rev-parse "v${VERSION_NEXT}" >/dev/null 2>&1; then
+            printf '%s\n' "$VERSION_NEXT" > VERSION
+            git add VERSION
+            git commit -m "Add version ${VERSION_NEXT}." -m "[release]"
+            git tag "v${VERSION_NEXT}"
+            git push origin HEAD:main
+            git push origin "v${VERSION_NEXT}"
+          fi
+          git fetch origin main
+          if ! gh release view "v${VERSION_NEXT}" >/dev/null 2>&1; then
+            prev="$(git describe --tags --abbrev=0 "v${VERSION_NEXT}^" 2>/dev/null || true)"
+            if [ -n "$prev" ]; then
+              notes="$(git log --pretty=format:'- %s' "${prev}..v${VERSION_NEXT}")"
+            else
+              notes="Stable release ${VERSION_NEXT}."
+            fi
+            gh release create "v${VERSION_NEXT}" --title "v${VERSION_NEXT}" --latest --notes "$notes"
+          fi
+          git fetch origin dev
+          git checkout -B dev origin/dev
+          git merge origin/main -m "Merge branch 'main' into dev"
+          git push origin HEAD:dev
+          bash scripts/sync-deps.sh

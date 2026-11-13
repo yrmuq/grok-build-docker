@@ -218,8 +218,8 @@ chown 1000:1000 /home/coder/.zshrc /home/coder/.tmux.conf
 
 cd /projects
 
-# Seed the mounted UI. Replace an older page once so double-click rename is present.
-if [ ! -f /terminal/index.html ] || ! grep -q 'grok-tab-plus-v1' /terminal/index.html; then
+# Replace the mounted page when its marker is missing so an image update reaches the volume.
+if [ ! -f /terminal/index.html ] || ! grep -q 'grok-i18n-v1' /terminal/index.html; then
     cp /opt/terminal-defaults/index.html /terminal/index.html
 fi
 # Replace the first theme pack. Later files the user adds are left alone.
